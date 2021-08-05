@@ -1,0 +1,15 @@
+--style=allman
+--convert-tabs
+--break-blocks
+--suffix=none
+--pad-oper
+--indent=spaces=4
+--indent-preproc-define
+--pad-header
+--unpad-paren
+--indent-modifiers
+--align-pointer=name
+--align-reference=name
+--add-braces
+--lineend=linux
+--mode=c
