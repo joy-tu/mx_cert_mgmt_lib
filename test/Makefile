@@ -2,11 +2,9 @@ INCLUDE_PATH := \
 	-I../src \
 	-I../include
 
-BUILD_DIR = build
-
 SRC_DIR := ../src
 
-COVERAGE := -fprofile-arcs -ftest-coverage -fprofile-dir=${BUILD_DIR}
+COVERAGE := -fprofile-arcs -ftest-coverage
 
 CFLAGS := -Wall -O0 ${INCLUDE_PATH} ${COVERAGE}
 
@@ -14,26 +12,31 @@ LDFLAGS := -lcmocka
 
 TARGETS := \
 	test_mx_timed_list \
-	test_mx_timed_event
+	test_mx_timed_event \
+	test_mx_timed_db \
 
 .PHONY: all
-all: ${BUILD_DIR} $(addprefix ${BUILD_DIR}/, ${TARGETS})
-	mv *.gcno ${BUILD_DIR}/
+all: ${TARGETS}
 	gcovr -r .
 
 .PHONY: clean
 clean:
-	rm -rf ${BUILD_DIR}
-	rm -f *.gcov *.gcds *.gcno
+	rm -f *.gcov *.gcno *.gcda
+	rm -f ${TARGETS}
 
-${BUILD_DIR}:
-	mkdir -p $@
-
-${BUILD_DIR}/test_mx_timed_event: test_mx_timed_event.c ${SRC_DIR}/mx_timed_event.c
+test_mx_timed_event: test_mx_timed_event.c ${SRC_DIR}/mx_timed_event.c
 	gcc -o $@ ${CFLAGS} -Wl,--wrap=calloc $< ${LDFLAGS}
 	./$@
 
-${BUILD_DIR}/test_mx_timed_list: test_mx_timed_list.c ${SRC_DIR}/mx_timed_list.h
-	gcc -o $@ ${CFLAGS} $< ${LDFLAGS}
+test_mx_timed_list: test_mx_timed_list.c ${SRC_DIR}/mx_timed_list.h
+	gcc -o $@ ${CFLAGS} -DUNIT_TESTING $< ${LDFLAGS}
+	./$@
+
+test_mx_timed_db: test_mx_timed_db.c ${SRC_DIR}/mx_timed_db.c
+	gcc -o $@ ${CFLAGS} -DUNIT_TESTING\
+		-Wl,--wrap=json_parse_file \
+		-Wl,--wrap=json_serialize_to_file_pretty \
+		-Wl,--wrap=stat \
+		$< ${LDFLAGS} -lparson
 	./$@
 
