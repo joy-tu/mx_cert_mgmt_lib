@@ -6,15 +6,17 @@ set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 include_directories(
     ${PROJECT_ROOT}/include/
     ${PROJECT_ROOT}/src/
+    ${PROJECT_ROOT}/../include/ # remove after release
 )
 
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_ROOT}/build)
 
 set(SOURCE_CODE_LIST
+    ${PROJECT_ROOT}/src/mx_timed_event.c
+    ${PROJECT_ROOT}/src/mx_timed_config.c
     ${PROJECT_ROOT}/src/mx_timed_main.c
     ${PROJECT_ROOT}/src/mx_timed.c
-    ${PROJECT_ROOT}/src/mx_timed_event.c
 )
 
 set(LIB_SOURCE_CODE_LIST
