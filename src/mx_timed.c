@@ -17,8 +17,9 @@
 
 void timed_main(void)
 {
-    if(timed_config_init() != 0)
+    if (timed_config_init() != 0)
     {
+        fprintf(stderr, "mx_timed init config fail!\n");
         return;
     }
 

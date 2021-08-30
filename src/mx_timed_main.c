@@ -15,13 +15,13 @@
 
 #include "mx_timed.h"
 
-static const char *optstring = "vhc:d:";
+static const char *optstring = "vh";
 
-static struct option opts[] = {
+static struct option opts[] =
+{
     { "version",    0, NULL, 'v'},
     { "help",       0, NULL, 'h'},
-    { "config",     1, NULL, 'c'},
-    { "defconfig",  1, NULL, 'd'},
+    { NULL,         0, NULL, 0},
 };
 
 static void _printf_version(void)
@@ -33,11 +33,9 @@ static void _printf_help(void)
 {
     fprintf(stdout,
             "Usage: mx-timed [option]\n"
-            "Usage: mx-timed -d default_config_path -c config_path\n"
+            "Usage: mx-timed \n"
             "\n"
             "Options:\n"
-            "      --config             specify the path of configuration file\n"
-            "      --defconfig          specify the path of default configuration file\n"
             "      --version            display version information and exit\n"
             "      --help               display this help and exit\n"
            );
@@ -54,38 +52,26 @@ static void _printf_help(void)
  */
 int main(int argc, char *argv[])
 {
-    char *config_path = NULL;
-    char *defconfig_path = NULL;
     int c = 0;
 
-    while((c = getopt_long(argc, argv, optstring, opts, NULL)) != -1)
+    while ((c = getopt_long(argc, argv, optstring, opts, NULL)) != -1)
     {
-        switch(c)
+        switch (c)
         {
-            case 'v':
-                _printf_version();
-                return EX_OK;
-            case 'h':
-                _printf_help();
-                return EX_OK;
-            case 'c':
-                config_path = optarg;
-                break;
-            case 'd':
-                defconfig_path = optarg;
-                break;
-            default:
-                return EXIT_FAILURE;
+        case 'v':
+            _printf_version();
+            return EX_OK;
+
+        case 'h':
+            _printf_help();
+            return EX_OK;
+
+        default:
+            return EXIT_FAILURE;
         }
     }
 
-    if(!config_path || !defconfig_path)
-    {
-        fprintf(stderr, "mx-timed: Missing path of config or defconfig\n");
-        return EX_CONFIG;
-    }
-
-    // run main
+    /* run main */
     timed_main();
 
     return EX_OK;
