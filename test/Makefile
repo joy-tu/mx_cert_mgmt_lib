@@ -1,6 +1,7 @@
 INCLUDE_PATH := \
 	-I../src \
-	-I../include
+	-I../include \
+	-I../../include
 
 SRC_DIR := ../src
 
@@ -14,6 +15,7 @@ TARGETS := \
 	test_mx_timed_list \
 	test_mx_timed_event \
 	test_mx_timed_db \
+	test_mx_timed_config
 
 .PHONY: all
 all: ${TARGETS}
@@ -40,3 +42,15 @@ test_mx_timed_db: test_mx_timed_db.c ${SRC_DIR}/mx_timed_db.c
 		$< ${LDFLAGS} -lparson
 	./$@
 
+test_mx_timed_config: test_mx_timed_config.c ${SRC_DIR}/mx_timed_config.c
+	gcc -o $@ ${CFLAGS} -DUNIT_TESTING\
+		-Wl,--wrap=recv \
+		-Wl,--wrap=accept \
+		-Wl,--wrap=socket \
+		-Wl,--wrap=bind \
+		-Wl,--wrap=close \
+		-Wl,--wrap=event_register \
+		-Wl,--wrap=event_deregister \
+		-Wl,--wrap=timed_intf_init \
+		$< ${LDFLAGS}
+	./$@

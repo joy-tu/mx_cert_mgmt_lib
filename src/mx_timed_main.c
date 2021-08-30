@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <sysexits.h>
+
+#include "mx_timed.h"
 
 static const char *optstring = "vhc:d:";
 
@@ -41,7 +44,6 @@ static void _printf_help(void)
 
 }
 
-
 /**
  * @brief
  *
@@ -62,10 +64,10 @@ int main(int argc, char *argv[])
         {
             case 'v':
                 _printf_version();
-                exit(EXIT_SUCCESS);
+                return EX_OK;
             case 'h':
                 _printf_help();
-                exit(EXIT_SUCCESS);
+                return EX_OK;
             case 'c':
                 config_path = optarg;
                 break;
@@ -73,18 +75,18 @@ int main(int argc, char *argv[])
                 defconfig_path = optarg;
                 break;
             default:
-                exit(EXIT_FAILURE);
+                return EXIT_FAILURE;
         }
     }
 
     if(!config_path || !defconfig_path)
     {
         fprintf(stderr, "mx-timed: Missing path of config or defconfig\n");
-        exit(EXIT_FAILURE);
+        return EX_CONFIG;
     }
 
-    // config init
+    // run main
+    timed_main();
 
-    // run
-    exit(EXIT_SUCCESS);
+    return EX_OK;
 }
