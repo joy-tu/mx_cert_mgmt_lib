@@ -1,11 +1,13 @@
 BUILD_DIR ?= build
 
-.PHONY: all clean distclean tests
+DOCS_DIR ?= docs
+
+.PHONY: all clean distclean tests docs
 all: ${BUILD_DIR}
 	cd $< && cmake ../platform/laputa
 	cd $< && make
 
-${BUILD_DIR}:
+${BUILD_DIR} ${DOCS_DIR}:
 	mkdir -p $@
 
 clean: ${BUILD_DIR}
@@ -13,7 +15,10 @@ clean: ${BUILD_DIR}
 	cd test && make clean
 
 distclean:
-	rm -rf ${BUILD_DIR}
+	rm -rf ${BUILD_DIR} ${DOCS_DIR}
 
 tests:
 	cd test && make clean && make
+
+docs:
+	doxygen
