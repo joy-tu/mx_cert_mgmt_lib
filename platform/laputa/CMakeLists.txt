@@ -19,6 +19,7 @@ set(SOURCE_CODE_LIST
     ${PROJECT_ROOT}/src/mx_timed_notifier.c
     ${PROJECT_ROOT}/src/mx_timed_event.c
     ${PROJECT_ROOT}/src/mx_timed_config.c
+    ${PROJECT_ROOT}/src/mx_timed_sntp.c
     ${PROJECT_ROOT}/src/mx_timed_main.c
     ${PROJECT_ROOT}/src/mx_timed.c
 )
@@ -47,3 +48,8 @@ add_compile_definitions(
 add_executable(${PROJECT_NAME} ${SOURCE_CODE_LIST})
 
 target_link_libraries(${PROJECT_NAME} ${LINK_LIB_LIST})
+
+# test client
+#add_executable("mxtimec" ${PROJECT_ROOT}/src/mx_timed_client.c)
+#
+#target_link_libraries("mxtimec" ${LINK_LIB_LIST})
