@@ -17,6 +17,7 @@
 
 #include "mx_timed/mx_timed_intf.h"
 #include "mx_timed_event.h"
+#include "mx_timed_sntp.h"
 
 static int config_fd = -1;
 
@@ -25,19 +26,19 @@ static void _recv_handler(int fd, int op)
     int data;
     int n;
 
-    if(fd <= 0)
+    if (fd <= 0)
     {
         return;
     }
 
-    if(op != EVENT_OP_READ)
+    if (op != EVENT_OP_READ)
     {
         return;
     }
 
     n = recv(fd, &data, sizeof(int), 0);
 
-    if(n <= 0)
+    if (n <= 0)
     {
         event_deregister(fd);
         close(fd);
@@ -45,24 +46,29 @@ static void _recv_handler(int fd, int op)
     }
 
     // config change trigger
+    if (TIMED_CFG_SNTP_ALL | data)
+    {
+        timed_sntp_config_update(data);
+    }
 }
 
 static void _connect_handler(int fd, int op)
 {
     int rfd = 0;
 
-    if(fd <= 0)
+    if (fd <= 0)
     {
         return;
     }
 
-    if(op != EVENT_OP_READ)
+    if (op != EVENT_OP_READ)
     {
         return;
     }
 
     rfd = accept(fd, NULL, NULL);
-    if(rfd < 0)
+
+    if (rfd < 0)
     {
         return;
     }
@@ -72,35 +78,39 @@ static void _connect_handler(int fd, int op)
 
 static int _init_listener()
 {
-    struct sockaddr_un un = {
+    struct sockaddr_un un =
+    {
         .sun_family = AF_UNIX,
     };
 
     config_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if(config_fd < 0)
+
+    if (config_fd < 0)
     {
-        fprintf(stderr, "error in %s:%d %s\n",__func__,__LINE__,strerror(errno));
+        fprintf(stderr, "error in %s:%d %s\n", __func__, __LINE__, strerror(errno));
         return -1;
     }
 
     strcpy(un.sun_path, TIMED_SOCKET_ADDR);
     unlink(TIMED_SOCKET_ADDR);
 
-    if(bind(config_fd, (struct sockaddr *)&un, sizeof(un)) < 0)
+    if (bind(config_fd, (struct sockaddr *)&un, sizeof(un)) < 0)
     {
-        fprintf(stderr, "error in %s:%d %s\n",__func__,__LINE__,strerror(errno));
+        fprintf(stderr, "error in %s:%d %s\n", __func__, __LINE__, strerror(errno));
         close(config_fd);
         return -1;
     }
 
-    if(listen(config_fd, 1) < 0)
+    if (listen(config_fd, 1) < 0)
     {
-        fprintf(stderr, "error in %s:%d %s\n",__func__,__LINE__,strerror(errno));
+        fprintf(stderr, "error in %s:%d %s\n", __func__, __LINE__, strerror(errno));
         close(config_fd);
         return -1;
     }
 
-    event_register(config_fd, EVENT_OP_READ, 0, _connect_handler, NULL);
+    event_register(config_fd,
+                   (EVENT_OP_READ | EVENT_OP_ALWAYS),
+                   0, _connect_handler, NULL);
     return 0;
 }
 
@@ -120,10 +130,12 @@ int timed_config_init()
 {
     _init_listener();
 
-    if(timed_intf_init() != TIMED_OK)
+    if (timed_intf_init() != TIMED_OK)
     {
         return -1;
     }
+
+    timed_sntp_config_update(TIMED_CFG_SNTP_ALL);
     return 0;
 }
 

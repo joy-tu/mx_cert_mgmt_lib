@@ -25,7 +25,7 @@ int __wrap_socket(int domain, int type, int protocol)
 }
 
 int __wrap_bind(int sockfd, const struct sockaddr *addr,
-        socklen_t addrlen)
+                socklen_t addrlen)
 {
     return (int)mock();
 }
@@ -36,9 +36,9 @@ int __wrap_close(int fd)
 }
 
 int __wrap_event_register(
-        int fd, uint8_t op, time_t timeout,
-        void (*callback)(int, int),
-        void (*timeout_handler)(int)
+    int fd, uint8_t op, time_t timeout,
+    void (*callback)(int, int),
+    void (*timeout_handler)(int)
 )
 {
     return 0;
@@ -144,7 +144,8 @@ static void _test_timed_config_deinit(void **state)
 
 int main(void)
 {
-    const struct CMUnitTest tests[] = {
+    const struct CMUnitTest tests[] =
+    {
         cmocka_unit_test(_test_recv_handler),
         cmocka_unit_test(_test_connect_handler),
         cmocka_unit_test(_test_init_listener),
