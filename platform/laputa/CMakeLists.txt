@@ -3,16 +3,20 @@ project(mx-timed VERSION 0.0.0 LANGUAGES C)
 
 set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../../scripts")
+include(astyle)
+
 include_directories(
     ${PROJECT_ROOT}/include/
     ${PROJECT_ROOT}/src/
-    ${PROJECT_ROOT}/../include/ # remove after release
+    #    ${PROJECT_ROOT}/../include/ # remove after release
 )
 
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_ROOT}/build)
 
 set(SOURCE_CODE_LIST
+    ${PROJECT_ROOT}/src/mx_timed_notifier.c
     ${PROJECT_ROOT}/src/mx_timed_event.c
     ${PROJECT_ROOT}/src/mx_timed_config.c
     ${PROJECT_ROOT}/src/mx_timed_main.c
@@ -30,6 +34,7 @@ add_library("mxtimed" SHARED ${LIB_SOURCE_CODE_LIST})
 #set_property(TARGET mxtimed PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 set(LINK_LIB_LIST
+    "mx-event-agent"
     "pthread"
     "mxtimed"
     "parson"
