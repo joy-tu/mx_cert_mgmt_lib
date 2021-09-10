@@ -1,0 +1,229 @@
+# author: Ethan Tsai
+# date: 2021/9/10
+
+openapi: '3.0.2'
+info:
+  title: Moxa Time Daemon API
+  version: '0.0.0'
+  description: >-
+    APIs to get/set configuration of Moxa Time Daemon.
+
+servers:
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/tsaihp/test/1.0.0
+
+paths:
+  /timezone.list:
+    get:
+      summary: Listing of all timezones.
+      responses:
+        default:
+          $ref: "#/components/responses/TimezoneList"
+  /time:
+    get:
+      summary: Get system time.
+      responses:
+        '200':
+          $ref: "#/components/responses/Time"
+    put:
+      summary: Update system time.
+      requestBody:
+        description: >-
+          Update the system time.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimeInfo"
+      responses:
+        '200':
+          $ref: "#/components/responses/SuccessJsonResponse"
+        default:
+          $ref: "#/components/responses/ErrorJsonResponse"
+
+  /timezone:
+    get:
+      summary: configuration of timezone and daylight saving time.
+      responses:
+        '200':
+          $ref: "#/components/responses/Timezone"
+    patch:
+      summary: Update configuration of timezone and daylight saving time.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Timezone"
+      responses:
+        '200':
+          $ref: "#/components/responses/SuccessJsonResponse"
+        default:
+          $ref: "#/components/responses/ErrorJsonResponse"
+  /timeserver:
+    get:
+      summary: configuration of remote time server.
+      responses:
+        '200':
+          $ref: "#/components/responses/TimeServer"
+    patch:
+      summary: Update configuration of remote time server.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimeServer"
+      responses:
+        '200':
+          $ref: "#/components/responses/SuccessJsonResponse"
+        default:
+          $ref: "#/components/responses/ErrorJsonResponse"
+
+components:
+  schemas:
+    Info:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "OK!"
+    SuccessInfo:
+      type: object
+      properties:
+        status:
+          type: object
+          properties:
+            message:
+              type: string
+              example: "OK!"
+    ErrorInfo:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            errId:
+              type: integer
+              example: -1
+            message:
+              type: string
+              example: "Get configuration fail!"
+    TimeInfo:
+      type: object
+      properties:
+        datetime:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$'
+          example: "2021-09-07T23:24:15"
+        status:
+          $ref: "#/components/schemas/Info"
+    DstDate:
+      type: object
+      properties:
+        month:
+          type: integer
+          minimum: 0
+          maximum: 12
+          example: 1
+        week:
+          type: integer
+          minimum: 0
+          maximum: 5
+          example: 1
+        day:
+          type: integer
+          minimum: 0
+          maximum: 7
+          example: 1
+        hour:
+          type: integer
+          minimum: 0
+          maximum: 24
+          example: 1
+    Timezone:
+      type: object
+      properties:
+        timezone:
+          type: string
+          example: "(GMT)Greenwich Mean Time: Dublin, Edinburgh, Lisbon, London"
+        timezoneIndex:
+          type: integer
+          minimum: 0
+          maximum: 63
+          example: 1
+        dstOffset:
+          type: integer
+          minimum: -12
+          maximum: +12
+          example: 1
+        dstStartDate:
+          $ref: "#/components/schemas/DstDate"
+        dstEndDate:
+          $ref: "#/components/schemas/DstDate"
+    TimezonList:
+      type: object
+      properties:
+        list:
+          type: array
+          items:
+            type: string
+          example:
+            - "(GMT)Casablanca, Monrovia"
+            - "(GMT)Greenwich Mean Time: Dublin, Edinburgh, Lisbon, London"
+    TimeServer:
+      type: object
+      properties:
+        server:
+          type: string
+          maxLength: 128
+          format: uri
+          example: "192.168.1.1"
+        interval:
+          type: integer
+          minimum: 1
+          maximum: 43200
+          example: 1440
+        active:
+          type: boolean
+          example: false
+  responses:
+    SuccessJsonResponse:
+      description: >-
+        the list of supported timzones
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SuccessInfo"
+    ErrorJsonResponse:
+      description: >-
+        the list of supported timzones
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorInfo"
+    Time:
+      description: >-
+        time information
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TimeInfo"
+    TimezoneList:
+      description: >-
+        the list of supported timzones
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TimezonList"
+    TimeServer:
+      description: >-
+        the configuration of time server
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TimeServer"
+    Timezone:
+      description: >-
+        the configuration of timezone
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Timezone"

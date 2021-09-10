@@ -1,0 +1,19 @@
+stages:
+  - deploy
+
+pages:
+  image: node:latest
+  stage: deploy
+  script:
+    - npm install -g redoc-cli
+    - redoc-cli bundle -o public/index.html docs/timed.yml
+  artifacts:
+    paths:
+      - public
+  only:
+    refs:
+      - master
+      - develop
+    changes:
+      - docs/*.yml
+      - .gitlab-ci.yml
