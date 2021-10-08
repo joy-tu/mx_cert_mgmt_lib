@@ -67,7 +67,7 @@ static int cert_combine_ip_key_cert(char *pem_path,
                                                             char *ip,
                                                             char *key_path,
                                                             char *cert_path);
-                                                            
+static int cert_get_valid_date(char *_buf, struct tm *tm);                                                            
 static const char *optstring = "vh";
 
 static struct option opts[] =
@@ -250,7 +250,7 @@ static int _ASN1_GENERALIZEDTIME_print(char *buf, ASN1_GENERALIZEDTIME *tm)
     char *v;
     int i;
     int y = 0, M = 0, d = 0;
-
+    
     i = tm->length;
     v = (char *)tm->data;
 
@@ -274,7 +274,7 @@ static int _ASN1_UTCTIME_print(char *buf, ASN1_UTCTIME *tm)
     char *v;
     int i;
     int y = 0, M = 0, d = 0;
-
+    
     i = tm->length;
     v = (char *)tm->data;
 
@@ -302,6 +302,75 @@ static int _ASN1_TIME_print(char *buf, ASN1_TIME *tm)
     sprintf(buf, " ");  /* Bad time value */
     return(0);
 }
+
+static int cert_get_valid_date(char *_buf, struct tm *tm) 
+{
+    char * pch;
+    int cnt = 0;
+
+    dbg_printf("%s-%d, date=%s\r\n", __func__, __LINE__, _buf);
+    pch = strtok(_buf, "/");
+    while (pch != NULL) {  
+      if (cnt == 0) {
+        tm->tm_year = atoi(pch) - 1900; 
+        dbg_printf("year=%d\r\n", tm->tm_year);
+      } else if (cnt == 1) {
+        tm->tm_mon = atoi(pch);
+        dbg_printf("mon=%d\r\n", tm->tm_mon);
+      } else if (cnt == 2) {
+        tm->tm_mday = atoi(pch);
+        dbg_printf("day=%d\r\n", tm->tm_mday);
+      }
+      cnt++;
+      pch = strtok (NULL, "/");
+    }
+    tm->tm_hour = 0;
+    tm->tm_min = 0;
+    tm->tm_sec = 0;
+    if (cnt > 2)
+      return 1;
+    else 
+      return -1;
+}
+
+static int cert_ck_expire(struct tm *now, struct tm *cert) 
+{
+    int days = 0;
+    int tmp = 0;
+
+    tmp = cert->tm_year - now->tm_year;
+
+    if (tmp > 0)
+        days += tmp * 365;
+    else {
+        tmp = abs(tmp);
+        tmp = tmp * 365;
+        days -= tmp;
+    }
+    
+    tmp = cert->tm_mon - now->tm_mon;
+    if (tmp > 0)
+        days += tmp * 30;
+    else {
+        tmp = abs(tmp);
+        tmp = tmp * 30;
+        days -= tmp;
+    }
+
+    tmp = cert->tm_mday - now->tm_mday;
+    if (tmp > 0)
+        days += tmp;        
+    else {
+        tmp = abs(tmp);
+        days -= tmp;
+    }        
+    dbg_printf("days=%d\r\n", days);
+    if (days > 61)
+        return 0; /* save */
+    else
+        return days; /* will expire */
+}
+
 /*****************************************************************************
  * Public functions
  ****************************************************************************/
@@ -320,6 +389,11 @@ int main(int argc, char *argv[])
     FILE *fpw, *fpr;
     int filelen;
     char *buf, *data;
+    X509 *x;
+    char _buf[64], tmp[64];
+    struct tm tm, rootca_date, endtitiy_date;
+    time_t t, t2;
+    double seconds;
 
     dbg_printf("%s-%d, version=%s\r\n", __func__, __LINE__,VERSION);
     //system("apt-get install -y net-tools > /null");
@@ -337,16 +411,7 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
         }
     }
-#if 0    
-    while ((buf = OPENSSL_malloc(CERT_BUF_LEN)) == NULL)
-        usleep(100*1000);
-    buf_len = sslRSAKey_new(buf, CERT_BUF_LEN); /* takes about 2 seconds */
-    {
-        SSL_CTX *ctx;
-        (ctx = SSL_CTX_new(SSLv23_server_method()));
-    }
-    SSL_load_error_strings();
-#endif    
+
     if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
 	dbg_printf("Ok****net_get_my_ip_by_ifname - %x****\r\n", ip);
     } else {
@@ -370,8 +435,24 @@ int main(int argc, char *argv[])
                 CERT_ROOTCA_CERT_PATH);
     system(cmd);            
 #endif
+/* Test function for import */
+{
+    FILE *fpr;
+    int file_len;
 
-    ret = checkAndSetCertFile(data, filelen, buf, BUF_SZ);
+    fpr = fopen("import.pem", "r");
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);	
+    data = (char*)calloc(filelen, sizeof(char));	
+    if (data == NULL)
+        return 0;
+    fread(data, sizeof(char), filelen, fpr);
+    fclose(fpr);
+    printf("%s\r\n", data);
+}
+
+    //ret = checkAndSetCertFile(data, filelen, buf, BUF_SZ);
     if (check_import(1)) {   // Found import.
         goto ck_valid;
     }
@@ -381,20 +462,20 @@ int main(int argc, char *argv[])
     } else {
         /* Generate Key & CSR & sign cert & combine */
 #if 1
-    test_func(10);
-    cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
-    cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH);
-    cert_sign_cert(
-            CERT_ROOTCA_CERT_PATH,
-            CERT_ROOTCA_KEY_PATH,
-            CERT_ENDENTITY_VALID_DAY,
-            CERT_ENDENTITY_CERT_PATH);
-    ret = cert_combine_ip_key_cert(CERT_ENDENTITY_PEM_PATH,
-            active_ip,
-            CERT_ENDENTITY_KEY_PATH,
-            CERT_ENDENTITY_CERT_PATH); 
-    if (!ret)
-        return -1;
+    //test_func(10);
+        cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
+        cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH);
+        cert_sign_cert(
+                CERT_ROOTCA_CERT_PATH,
+                CERT_ROOTCA_KEY_PATH,
+                CERT_ENDENTITY_VALID_DAY,
+                CERT_ENDENTITY_CERT_PATH);
+        ret = cert_combine_ip_key_cert(CERT_ENDENTITY_PEM_PATH,
+                active_ip,
+                CERT_ENDENTITY_KEY_PATH,
+                CERT_ENDENTITY_CERT_PATH); 
+        if (!ret)
+            return -1;
 #else
         sprintf(cmd, "openssl genrsa -out %s %d", 
                     CERT_ENDENTITY_KEY_PATH,
@@ -452,24 +533,40 @@ int main(int argc, char *argv[])
 #endif
     }
 ck_valid:
-    //sleep(CERT_SLEEP_5MIN);
+    /* Get rootca && end entity expiration date */
+    x = TS_CONF_load_cert(CERT_ENDENTITY_PEM_PATH);
+    ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
+    ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
+    ret = cert_get_valid_date(_buf, &rootca_date);
+    strftime(tmp, sizeof(tmp), "rootca_date:%c\r\n", &rootca_date);
+    dbg_printf(tmp);
+    x = TS_CONF_load_cert("/cert/rootca.pem");
+    ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
+    ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x));   
+    ret = cert_get_valid_date(_buf, &endtitiy_date);
+    strftime(tmp, sizeof(tmp), "endtitiy_date:%c\r\n", &endtitiy_date);
+    dbg_printf(tmp);
+     //sleep(CERT_SLEEP_5MIN);
     while (1) {
-        X509 *x;
-        int ret;
-        char buf[60];
-        x = TS_CONF_load_cert(CERT_ENDENTITY_PEM_PATH);
-        ret = _ASN1_TIME_print(buf, X509_get_notBefore(x));
-        printf("1buf = %s\r\n", buf);
-        ret = _ASN1_TIME_print(buf, X509_get_notAfter(x));   
-        printf("2buf = %s\r\n", buf);
-        x = TS_CONF_load_cert("/cert/rootca.pem");
-        ret = _ASN1_TIME_print(buf, X509_get_notBefore(x));
-        printf("3buf = %s\r\n", buf);
-        ret = _ASN1_TIME_print(buf, X509_get_notAfter(x));   
-        printf("4buf = %s\r\n", buf);   
+        /* compare the date between now and rootca/end entity */
+        double ret;
+        t = time(NULL);
 
-        time_t t = time(NULL);
-        struct tm tm = *localtime(&t);
+        tm = *localtime(&t);
+        tm.tm_year += 20;
+        strftime(tmp, sizeof(tmp), "now_date:%c\r\n", &tm);
+        dbg_printf(tmp);
+        ret = cert_ck_expire(&tm, &rootca_date);
+        if (ret > 0) {
+            printf("todo send for rootca will expired (%d)\r\n", ret);
+        } else if (ret < 0)
+            printf("todo send for rootca expired (%d)\r\n", ret);        
+        ret = cert_ck_expire(&tm, &endtitiy_date);
+        if (ret > 0) {
+            printf("todo send for end-cert will expired (%d)\r\n", ret);
+        } else if (ret < 0)
+            printf("todo send for end-cert expired (%d)\r\n", ret); 
+        
         printf("now: %d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
         sleep(CERT_SLEEP_1DAY);

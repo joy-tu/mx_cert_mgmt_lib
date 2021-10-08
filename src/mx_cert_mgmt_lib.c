@@ -28,6 +28,12 @@
  /*****************************************************************************
  * Definition
  ****************************************************************************/
+#define DEBUG_MX_CERT_MGMT
+#ifdef DEBUG_MX_CERT_MGMT
+#define dbg_printf  printf
+#else
+#define dbg_printf(...) 
+#endif
 #define CERT_ENDENTITY_PEM_PATH "endentity.pem" 
 #define SSL_CERT_IMPORT_FLAG "import"
 #define D_SSL_CHECK_CERT    0x00000001L
@@ -105,7 +111,6 @@ static int checkCert(char *cert_file, char* key_file, int flag, char* errorStr, 
         dbg_printf("SSL_CTX_new() failed\r\n");
         return -1;  /* lack of resource */
     }
-
     ret = 0;
 
     if (flag & D_SSL_CHECK_CERT) {
@@ -115,10 +120,9 @@ static int checkCert(char *cert_file, char* key_file, int flag, char* errorStr, 
             goto end;
         }
     }
-
     if (flag & D_SSL_CHECK_KEY) {
-		char key_buf[64];
-		Scf_getPrivate_key_passwd(0, key_buf);
+		//char key_buf[64];
+		//Scf_getPrivate_key_passwd(0, key_buf);
 		//ctx->default_passwd_callback_userdata = key_buf;
 		//printf("ctx->default_passwd_callback : %p, ctx->default_passwd_callback_userdata : %p [%s]\n", ctx->default_passwd_callback, ctx->default_passwd_callback_userdata, (char *)ctx->default_passwd_callback_userdata);
         if (SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM) <= 0) {
@@ -126,7 +130,6 @@ static int checkCert(char *cert_file, char* key_file, int flag, char* errorStr, 
             ret = -3;
             goto end;
         }
-
         if (!SSL_CTX_check_private_key(ctx)) {
             snprintf(errorStr, errlen, "Private key does not match the certificate public key\n");
             ret = -4;
@@ -166,7 +169,6 @@ int checkAndSetCertFile(char* file, int len, char *errStr, int errlen)
 
     sprintf(cmd, "echo \"%s\" > %s", SSL_CERT_IMPORT_FLAG, tmpFile);
     system(cmd);
-
     fp = fopen(tmpFile, "a");
     
     if (fp == NULL)
@@ -177,27 +179,23 @@ int checkAndSetCertFile(char* file, int len, char *errStr, int errlen)
         ret = -3;
         goto error;
     }
-    
     fclose(fp);
     fp = NULL;
 
     certFile = (char*)tmpFile;
     keyFile = (char*)tmpFile;
 
-//    ret = checkCert(certFile, keyFile, flag, errStr, errlen);
-    
+    ret = checkCert(certFile, keyFile, flag, errStr, errlen);    
     if (ret < 0) {
         ret -= 10;
         goto error;
     }
-
     // save
     sprintf(cmd, "mv %s %s", tmpFile, fname);
     system(cmd);
 
     // sys_send_events(EVENT_ID_SSLIMPORT, 0); 
 error:
-
     if (fp)
         fclose(fp);
 
