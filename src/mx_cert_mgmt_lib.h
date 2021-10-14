@@ -8,6 +8,7 @@
 #define CERT_ROOTCA_CERT_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/rootca.pem"
 #define CERT_ENDENTITY_VALID_DAY 365 * 5
 #define CERT_ENDENTITY_KEY_LENGTH 2048
+#define CERT_ENDENTITY_TMP_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/tmp.pem"
 #define CERT_ENDENTITY_KEY_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.key"
 #define CERT_ENDENTITY_CSR_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.csr"
 #define CERT_ENDENTITY_CERT_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.cert"
@@ -29,5 +30,7 @@ int mx_import_cert(char *fname, char* data, int len, char *errStr, int errlen);
 int mx_cert_del(char *fname/*int cert_idx*/);
 int mx_regen_cert(void);
 int mx_tell_cert_type(char *fname);
-
+int mx_do_encry(char *certpath);
+int mx_do_decry_b(char *certpath, unsigned char *cert_ram);
+int mx_do_decry_f(char *certpath);
 #endif //__MX_CERT_MGMT_LIG_H__

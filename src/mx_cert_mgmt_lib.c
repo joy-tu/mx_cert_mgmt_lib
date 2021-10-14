@@ -25,6 +25,9 @@
 #include <openssl/x509v3.h>
 #include <openssl/ssl.h>
 #include <def/mx_def.h>
+#include <openssl/evp.h>
+#include <openssl/sha.h>
+#include <openssl/aes.h>
 #include "mx_cert_mgmt_lib.h"
  /*****************************************************************************
  * Definition
@@ -40,6 +43,10 @@
 #define D_SSL_CHECK_KEY     0x00000002L
 #define SSL_FILETYPE_ASN1	X509_FILETYPE_ASN1
 #define SSL_FILETYPE_PEM	X509_FILETYPE_PEM
+
+#define SHA256LEN                  32
+#define SEEDLEN                       16
+#define MACLEN                          6
 /*****************************************************************************
  * Private types/enumerations/variables
  ****************************************************************************/
@@ -54,6 +61,314 @@ static int check_cert_type(char *pem);
 /*****************************************************************************
  * Private functions
  ****************************************************************************/
+char Gseed[16] = {0x00, 0x02, 0x04, 0x08, 0x01, 0x03, 0x05, 0x07, 
+                            0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0x33, 0x94, 0x12};
+static int do_fake_get_mac(char *mac)
+{
+    mac[0] = 0x00;
+    mac[1] = 0x90;
+    mac[2] = 0xe8;
+    mac[3] = 0x12;
+    mac[4] = 0x34;
+    mac[5] = 0x56;
+
+    return 1;
+}
+
+static int do_fate_get_seed(char *seed)
+{
+       memcpy(seed, Gseed, 16);
+
+       return 1;
+}
+
+static int do_fake_get_serial_num(int *ser_no){
+        *ser_no = 1;
+}
+static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert_ram)
+{
+    char *data;
+    FILE *fpr, *fpe, *fpd;
+    int filelen, i;
+    AES_KEY wctx;
+    unsigned char enc_out[4096];
+    unsigned char dec_out[4096];
+    AES_KEY enc_key, dec_key;
+
+    //AES_set_encrypt_key(sha256, 128, &enc_key);
+    AES_set_decrypt_key(sha256,128,&dec_key);
+ 
+    fpr = fopen(CERT_ENDENTITY_PEM_PATH, "r");
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);	
+    data = (char*)calloc(filelen, sizeof(char));	
+    if (data == NULL)
+        return 0;
+    fread(data, sizeof(char), filelen, fpr);
+    fclose(fpr);
+
+    for (i = 0; i < filelen; i+=16) {
+        AES_decrypt(&data[i], &dec_out[i], &dec_key);
+    }
+    memcpy(cert_ram, data, filelen);
+}
+
+
+static int do_decry_f(char *certpath, unsigned char *sha256)
+{
+    char *data;
+    FILE *fpr, *fpe, *fpd;
+    int filelen, i;
+    AES_KEY wctx;
+    unsigned char enc_out[4096];
+    unsigned char dec_out[4096];
+    AES_KEY enc_key, dec_key;
+
+    //AES_set_encrypt_key(sha256, 128, &enc_key);
+    AES_set_decrypt_key(sha256,128,&dec_key);
+ 
+    fpr = fopen(CERT_ENDENTITY_PEM_PATH, "r");
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);	
+    data = (char*)calloc(filelen, sizeof(char));	
+    if (data == NULL)
+        return 0;
+    fread(data, sizeof(char), filelen, fpr);
+    fclose(fpr);
+    fpd = fopen(CERT_ENDENTITY_TMP_PATH, "w+");
+    for (i = 0; i < filelen; i+=16) {
+        AES_decrypt(&data[i], &dec_out[i], &dec_key);
+        fwrite(&dec_out[i], 1, 16, fpd);
+    }
+    fclose(fpd);
+
+}
+static int do_encry(char *certpath, unsigned char *sha256)
+{
+    char *data;
+    FILE *fpr, *fpe, *fpd;
+    int filelen, i;
+    AES_KEY wctx;
+    unsigned char enc_out[4096];
+    unsigned char dec_out[4096];
+    AES_KEY enc_key, dec_key;
+    
+    fpr = fopen(certpath, "r");
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);	
+    data = (char*)calloc(filelen, sizeof(char));	
+    if (data == NULL)
+        return 0;
+    fread(data, sizeof(char), filelen, fpr);
+    fclose(fpr);
+    unlink(certpath);
+    printf("Joy filelen = %d\r\n", filelen);
+    filelen = filelen;
+    AES_set_encrypt_key(sha256, 128, &enc_key);
+    AES_set_decrypt_key(sha256,128,&dec_key);
+
+    fpe = fopen(certpath, "w+");
+
+    for (i = 0; i < filelen; i+=16) {
+        AES_encrypt(&data[i], &enc_out[i], &enc_key);
+        fwrite(&enc_out[i], 1, 16, fpe);
+    }
+    fclose(fpe);
+#if 0 
+    
+    fpr = fopen("encry.txt", "r");
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);	
+    data = (char*)calloc(filelen, sizeof(char));	
+    if (data == NULL)
+        return 0;
+    fread(data, sizeof(char), filelen, fpr);
+    fclose(fpr);
+
+    fpd = fopen("decry.txt", "w+");
+    for (i = 0; i < filelen; i+=16) {
+        AES_decrypt(&data[i], &dec_out[i], &dec_key);
+        fwrite(&dec_out[i], 1, 16, fpd);
+    }
+    fclose(fpd);
+
+#endif
+    
+    printf("Strlen(enc_out)=%d, strlen(dec_out)=%d, strlen(data)=%d\r\n", 
+        strlen(enc_out), strlen(dec_out), strlen(data));
+}
+
+static int do_sha256(unsigned char *sha256)
+{
+    EVP_CIPHER_CTX *ctx;
+    unsigned char digest[SHA256LEN];
+    unsigned int outlen;
+    unsigned char mac[MACLEN], serial_num, seed[SEEDLEN];
+    int i, *seed_int;
+    //AES_KEY wctx;
+    //unsigned char enc_out[4096];
+    //unsigned char dec_out[4096];
+    //AES_KEY enc_key, dec_key;
+    
+    do_fake_get_mac(mac);
+    do_fake_get_serial_num(&serial_num);
+    do_fate_get_seed(seed);
+    
+    seed[5] += mac[0];
+    seed[6] += mac[1];
+    seed[7] += mac[2];
+    seed[8] += mac[3];
+    seed[9] += mac[5];
+    seed[10] += mac[6];
+
+    seed_int = (int *)&seed[0];
+    *seed_int += serial_num;
+    
+//    for (i = 0; i < 16; i++)
+//        printf("seed(%d)=%x\r\n", i , seed[i]);  
+        
+    ctx = EVP_CIPHER_CTX_new();
+
+    EVP_DigestInit(ctx, EVP_sha256());
+    EVP_DigestUpdate(ctx, seed, SEEDLEN);
+    EVP_DigestFinal(ctx, digest, &outlen);
+    printf("%s-%d\r\n", __func__, __LINE__);
+    for (i=0; i<outlen; i++)
+	printf("%02x", digest[i]);
+    putchar('\n');
+    memcpy(sha256, digest, 32);
+}
+static int _do_sha256(void)
+{
+#if 1
+    EVP_CIPHER_CTX *ctx;
+    const int datalen = 16;
+    unsigned char digest[32], testdata[16];
+    unsigned int outlen;
+    unsigned char mac[6], serial_num, seed[32];
+    int i, *seed_int;
+    AES_KEY wctx;
+    unsigned char text[32];
+    unsigned char enc_out[4096];
+    unsigned char dec_out[4096];
+    AES_KEY enc_key, dec_key;
+    
+    do_fake_get_mac(mac);
+    do_fake_get_serial_num(&serial_num);
+    do_fate_get_seed(seed);
+    
+    //testdata = (unsigned char *)malloc(datalen);
+    for (i = 0; i < 32; i++)
+        printf("seed(%d)=%x\r\n", i , seed[i]);
+    seed[5] += mac[0];
+    seed[6] += mac[1];
+    seed[7] += mac[2];
+    seed[8] += mac[3];
+    seed[9] += mac[5];
+    seed[10] += mac[6];
+    for (i = 0; i < 16; i++)
+        printf("seed(%d)=%x\r\n", i , seed[i]);    
+    seed_int = (int *)&seed[0];
+    printf("seed_int = %x(%d)\r\n", *seed_int, *seed_int);
+    *seed_int += serial_num;
+    printf("seed_int = %d\r\n", *seed_int);
+    for (i = 0; i < 16; i++)
+        printf("seed(%d)=%x\r\n", i , seed[i]);    
+    ctx = EVP_CIPHER_CTX_new();
+    memcpy(testdata, seed, 16);
+
+//    for (i=0; i<datalen; i++) {
+//        testdata[i] = 0x41 + i;
+//        printf("[%c]", testdata[i]);
+//    }
+    printf("\r\n");
+    printf("EVP_MAX_MD_SIZE=%d\r\n", EVP_MAX_MD_SIZE);
+    EVP_DigestInit(ctx, EVP_sha256());
+    EVP_DigestUpdate(ctx, testdata, datalen);
+    EVP_DigestFinal(ctx, digest, &outlen);
+    printf("outlen = %d\r\n", outlen);
+    for (i=0; i<outlen; i++)
+	printf("%02x", digest[i]);
+    putchar('\n');
+#if 1
+    char *data;
+    FILE *fpr;
+    int filelen;
+
+    fpr = fopen(CERT_ENDENTITY_PEM_PATH, "r");
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);	
+    data = (char*)calloc(filelen, sizeof(char));	
+    if (data == NULL)
+        return 0;
+    fread(data, sizeof(char), filelen, fpr);
+    fclose(fpr);
+
+#endif
+    for (i = 0; i < 32; i ++) {
+        text[i] = 0x41;
+    }
+    printf("Joy filelen = %d\r\n", filelen);
+    filelen = filelen;
+    AES_set_encrypt_key(digest, 128, &enc_key);
+    AES_set_decrypt_key(digest,128,&dec_key);
+    for (i = 0; i < filelen; i+=16) {
+        AES_encrypt(&data[i], &enc_out[i], &enc_key);
+        AES_decrypt(&enc_out[i], &dec_out[i], &dec_key);
+    }
+#if 0
+    printf("original:\t");
+    for(i=0;*(text+i)!=0x00;i++)
+        printf("%X ",*(text+i));
+    printf("\nencrypted:\t");
+    for(i=0;*(enc_out+i)!=0x00;i++)
+        printf("%X ",*(enc_out+i));
+    printf("\ndecrypted:\t");
+    for(i=0;*(dec_out+i)!=0x00;i++)
+        printf("%X ",*(dec_out+i));
+    printf("\n");
+#else
+    printf("\n----------------original:\r\n");
+    for (i = 0; i < filelen; i++) {
+        printf("%c", data[i]);
+        //if ((i + 1)% 16 == 0)
+        //    printf("\r\n");
+    }
+    printf("\n--------------encrypted:\r\n");
+    for (i = 0; i < filelen; i++) {
+        printf("%c", enc_out[i]);
+        //if ((i + 1) % 16 == 0)
+        //    printf("\r\n");
+    }
+    printf("\n-----------------decrypted:\r\n");
+    for (i = 0; i < filelen; i++) {
+        printf("%c", dec_out[i]);
+        //if ((i + 1) %16 == 0)
+        //    printf("\r\n");
+    }
+    printf("\n-------------------\n");
+    printf("compare data, dec_out = %d\r\n", memcmp(data, dec_out, filelen));
+#endif
+    return 0;    
+#else
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, "12345678", 8);
+    SHA256_Final(hash, &sha256);
+    for(int i = 0; i < SHA256_DIGEST_LENGTH ; i++)
+    {
+        printf("%02x", hash[i]);
+    }
+    printf("\r\n");
+    return 0;
+#endif    
+}
 /**
  * @brief:  Check the type of cerificate file.
  *
@@ -65,8 +380,10 @@ static int check_cert_type(char *pem)
 {
     FILE *fp;
     char import_flag[128];
-
-    fp = fopen(pem, "r");
+    
+    mx_do_decry_f(pem);
+    fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
+    unlink(CERT_ENDENTITY_TMP_PATH);
 
     if (fp != NULL) {
         fgets(import_flag, sizeof(import_flag), fp);
@@ -238,7 +555,7 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
     // save
     sprintf(cmd, "mv %s %s", tmpFile, fname);
     system(cmd);
-
+    mx_do_encry(fname);
     // sys_send_events(EVENT_ID_SSLIMPORT, 0); 
 error:
     if (fp)
@@ -284,6 +601,8 @@ int mx_regen_cert(void)
             active_ip,
             CERT_ENDENTITY_KEY_PATH,
             CERT_ENDENTITY_CERT_PATH); 
+    unlink(CERT_ENDENTITY_KEY_PATH);
+    unlink(CERT_ENDENTITY_CERT_PATH);
     if (!ret)
         return -1;    
 }
@@ -333,7 +652,10 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     fclose(fpr);
     fwrite(buf, file_len, 1, fpw);    
     fclose(fpw);
-
+    /* remove individual key & cert */
+    unlink(key_path);
+    unlink(cert_path);
+    mx_do_encry(pem_path);
     return 1;
 }
 
@@ -376,3 +698,44 @@ void mx_cert_sign_cert(char *csr_path, char *rootcert_path, char *rootkey_path,
     system(cmd);  
 }
 
+int mx_do_encry(char *certpath)
+{
+    int i;
+    unsigned char sha256[32];
+    
+    do_sha256(sha256);
+    printf("%s-%d\r\n", __func__, __LINE__);    
+    for (i = 0; i < 32; i++)
+	printf("%02x", sha256[i]);
+    printf("\r\n");
+    
+    do_encry(certpath, sha256);
+}
+
+int mx_do_decry_b(char *certpath, unsigned char *cert_ram)
+{
+    int i;
+    unsigned char sha256[32];
+    
+    do_sha256(sha256);
+    
+    for (i = 0; i < 32; i++)
+	printf("%02x", sha256[i]);
+    printf("\r\n");
+    
+    do_decry_b(certpath, sha256, cert_ram);
+}
+
+int mx_do_decry_f(char *certpath)
+{
+    int i;
+    unsigned char sha256[32];
+    
+    do_sha256(sha256);
+    
+    for (i = 0; i < 32; i++)
+	printf("%02x", sha256[i]);
+    printf("\r\n");
+    
+    do_decry_f(certpath, sha256);
+}

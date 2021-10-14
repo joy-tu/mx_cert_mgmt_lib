@@ -26,6 +26,7 @@
 #include <openssl/x509v3.h>
 #include <def/mx_def.h>
 #include <openssl/ssl.h>
+#include <openssl/evp.h>
 #include "mx_timed.h"
 #include "mx_cert_mgmt_lib.h"
 
@@ -45,6 +46,7 @@
 #define CERT_ROOTCA_KEY_LENGTH 2048
 //#define CERT_ROOTCA_KEY_PATH "rootca.key"
 //#define CERT_ROOTCA_CERT_PATH "rootca.pem"
+#if 0
 #define CERT_ROOTCA_KEY_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/rootca.key"
 #define CERT_ROOTCA_CERT_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/rootca.pem"
 #define CERT_ENDENTITY_VALID_DAY 365 * 5
@@ -53,7 +55,7 @@
 #define CERT_ENDENTITY_CSR_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.csr"
 #define CERT_ENDENTITY_CERT_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.cert"
 #define CERT_ENDENTITY_PEM_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.pem"
-
+#endif
 /*****************************************************************************
  * Private types/enumerations/variables
  ****************************************************************************/
@@ -122,7 +124,10 @@ static int check_certificate(int active_if)
     struct sockaddr_in addr_in;
     char ipstr[128], active_ip[32];
 
-    fp = fopen(CERT_ENDENTITY_PEM_PATH, "r");
+    mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
+    unlink(CERT_ENDENTITY_TMP_PATH);
+
 
     if (fp != NULL) {
         dbg_printf("\nFound pem file, now check ip address...\n");
@@ -145,9 +150,10 @@ static int check_import(int active_if)
 {
     FILE *fp;
     char import_flag[128];
-
-    fp = fopen(CERT_ENDENTITY_PEM_PATH, "r");
-
+    
+    mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
+    unlink(CERT_ENDENTITY_TMP_PATH);
     if (fp != NULL) {
         dbg_printf("\nFound cert file, now check import...\n");
         fgets(import_flag, sizeof(import_flag), fp);
@@ -394,7 +400,7 @@ int main(int argc, char *argv[])
     int filelen;
     char buf[BUF_SZ], *data;
     X509 *x;
-    char _buf[64], tmp[64];
+    char _buf[64], tmp[64], cert_b[4096];
     struct tm tm, rootca_date, endtitiy_date;
     time_t t, t2;
     double seconds;
@@ -443,10 +449,19 @@ int main(int argc, char *argv[])
 //#define IMPORT_TEST
 //#define DELETE_TEST
 //#define REGEN_TEST
+//#define ENCRYP_TEST
+#ifdef ENCRYP_TEST
+    //mx_do_encry(CERT_ENDENTITY_PEM_PATH);
+    printf("test1\r\n");
+    mx_do_decry_b(CERT_ENDENTITY_PEM_PATH, cert_b);
+    printf("test2\r\n");
+    printf("%s\r\n", cert_b);
+    printf("test3\r\n");
+    return 0;
+#endif
 #ifdef IMPORT_TEST
 {
     FILE *fpr;
-    int file_len;
 
     fpr = fopen("import.pem", "r");
     fseek(fpr, 0L, SEEK_END);
@@ -503,13 +518,15 @@ int main(int argc, char *argv[])
     }
 ck_valid:
     /* Get rootca && end entity expiration date */
-    x = TS_CONF_load_cert(CERT_ENDENTITY_PEM_PATH);
+    mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
+    unlink(CERT_ENDENTITY_TMP_PATH);
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
     ret = cert_get_valid_date(_buf, &rootca_date);
     strftime(tmp, sizeof(tmp), "rootca_date:%c\r\n", &rootca_date);
     dbg_printf(tmp);
-    x = TS_CONF_load_cert("/cert/rootca.pem");
+    x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x));   
     ret = cert_get_valid_date(_buf, &endtitiy_date);
