@@ -111,7 +111,7 @@ static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert
     for (i = 0; i < filelen; i+=16) {
         AES_decrypt(&data[i], &dec_out[i], &dec_key);
     }
-    memcpy(cert_ram, data, filelen);
+    memcpy(cert_ram, dec_out, filelen);
 }
 
 

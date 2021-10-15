@@ -450,14 +450,17 @@ int main(int argc, char *argv[])
 //#define DELETE_TEST
 //#define REGEN_TEST
 //#define ENCRYP_TEST
-#ifdef ENCRYP_TEST
-    //mx_do_encry(CERT_ENDENTITY_PEM_PATH);
+//#define DECRY_TEST
+#ifdef DECRY_TEST
     printf("test1\r\n");
     mx_do_decry_b(CERT_ENDENTITY_PEM_PATH, cert_b);
     printf("test2\r\n");
     printf("%s\r\n", cert_b);
     printf("test3\r\n");
     return 0;
+#endif
+#ifdef ENCRYP_TEST
+    //mx_do_encry(CERT_ENDENTITY_PEM_PATH);
 #endif
 #ifdef IMPORT_TEST
 {
