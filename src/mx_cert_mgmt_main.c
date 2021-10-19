@@ -123,10 +123,12 @@ static int check_certificate(int active_if)
     unsigned long ip;
     struct sockaddr_in addr_in;
     char ipstr[128], active_ip[32];
+    int ret;
 
-    mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    ret = mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
-    unlink(CERT_ENDENTITY_TMP_PATH);
+    if (ret == 1)
+        unlink(CERT_ENDENTITY_TMP_PATH);
 
 
     if (fp != NULL) {
@@ -150,10 +152,12 @@ static int check_import(int active_if)
 {
     FILE *fp;
     char import_flag[128];
+    int ret;
     
-    mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    ret= mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
-    unlink(CERT_ENDENTITY_TMP_PATH);
+    if (ret == 1)
+        unlink(CERT_ENDENTITY_TMP_PATH);
     if (fp != NULL) {
         dbg_printf("\nFound cert file, now check import...\n");
         fgets(import_flag, sizeof(import_flag), fp);

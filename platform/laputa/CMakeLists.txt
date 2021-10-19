@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(mx-timed VERSION 0.0.1 LANGUAGES C)
+project(mx-cert-mgmt VERSION 0.0.1 LANGUAGES C)
 
 set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 
@@ -16,22 +16,16 @@ set(CMAKE_BUILD_TYPE "Release")
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_ROOT}/build)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(SOURCE_CODE_LIST
-	#${PROJECT_ROOT}/src/mx_timed_notifier.c
-	#${PROJECT_ROOT}/src/mx_timed_event.c
-	#${PROJECT_ROOT}/src/mx_timed_config.c
-	#${PROJECT_ROOT}/src/mx_timed_sntp.c
-    #${PROJECT_ROOT}/src/mx_timed_main.c
     ${PROJECT_ROOT}/src/mx_cert_mgmt_main.c
-    #${PROJECT_ROOT}/src/mx_timed.c
+    #${PROJECT_ROOT}/src/mx_xxx.c
 )
 
 set(LIB_SOURCE_CODE_LIST
-	#${PROJECT_ROOT}/src/mx_timed_db.c
-    #${PROJECT_ROOT}/src/mx_timed_intf.c
     ${PROJECT_ROOT}/src/mx_cert_mgmt_lib.c
+    #${PROJECT_ROOT}/src/mx_xxx_xxx.c
 )
 
-add_library("mxtimed" SHARED ${LIB_SOURCE_CODE_LIST})
+add_library("mxcert" SHARED ${LIB_SOURCE_CODE_LIST})
 
 # TODO: add fPIC?
 #set_property(TARGET mxtimed PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -39,7 +33,7 @@ add_library("mxtimed" SHARED ${LIB_SOURCE_CODE_LIST})
 set(LINK_LIB_LIST
 	#    "mx-event-agent"
     #    "pthread"
-    "mxtimed"
+    "mxcert"
     #    "parson"
     "ssl"
     "crypto"
