@@ -33,7 +33,7 @@
 /*****************************************************************************
  * Definition
  ****************************************************************************/
-#define DEBUG_MX_CERT_MGMT
+//#define DEBUG_MX_CERT_MGMT
 #ifdef DEBUG_MX_CERT_MGMT
 #define dbg_printf  printf
 #else
@@ -44,34 +44,11 @@
 #define SSL_CERT_IMPORT_FLAG "import"
 #define CERT_ROOTCA_VALID_DAY 3650 
 #define CERT_ROOTCA_KEY_LENGTH 2048
-//#define CERT_ROOTCA_KEY_PATH "rootca.key"
-//#define CERT_ROOTCA_CERT_PATH "rootca.pem"
-#if 0
-#define CERT_ROOTCA_KEY_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/rootca.key"
-#define CERT_ROOTCA_CERT_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/rootca.pem"
-#define CERT_ENDENTITY_VALID_DAY 365 * 5
-#define CERT_ENDENTITY_KEY_LENGTH 2048
-#define CERT_ENDENTITY_KEY_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.key"
-#define CERT_ENDENTITY_CSR_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.csr"
-#define CERT_ENDENTITY_CERT_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.cert"
-#define CERT_ENDENTITY_PEM_PATH SYSTEM_WRITABLE_FILES_PATH"/cert/endentity.pem"
-#endif
 /*****************************************************************************
  * Private types/enumerations/variables
  ****************************************************************************/
 static int check_certificate(int active_if);
 static int check_import(int active_if);
-#if 0 
-static void cert_gen_priv_key(char *keypath, int len);
-static void cert_gen_csr(char *keypath, char *csrpath);
-static void cert_sign_cert(char *rootcert_path, 
-                                            char *rootkey_path,
-                                        int valid_day, char *cert_path);
-static int cert_combine_ip_key_cert(char *pem_path,
-                                                            char *ip,
-                                                            char *key_path,
-                                                            char *cert_path);
-#endif
 static int cert_get_valid_date(char *_buf, struct tm *tm);                                                            
 static const char *optstring = "vh";
 
@@ -115,6 +92,32 @@ static void _printf_help(void)
             "      --help               display this help and exit\n"
            );
 
+}
+static char myip[] = "/var/tmp/_myip";
+
+int net_get_my_ip_by_ifname(char *ifname, unsigned char *addr)
+{
+	char cmd[256], buf[128];
+	char *bufp;
+	FILE *fp;
+
+	sprintf(cmd, "ifconfig %s | awk '$1 == \"inet\" {print $2}' > %s",  ifname, myip);
+	system(cmd);	
+	
+	bufp = buf;
+	fp = fopen(myip, "r");
+	if (fp != NULL) {
+		fgets(bufp, sizeof(buf), fp);
+		fclose(fp);
+	}
+	if (strlen(bufp) <= 0) {
+		return -1;
+	}
+	sprintf(cmd, "rm -rf %s", myip);
+	system(cmd);	
+	*addr = inet_addr(bufp);
+	
+	return 0;
 }
 
 static int check_certificate(int active_if)
@@ -171,94 +174,7 @@ static int check_import(int active_if)
     else
         return 0;
 }
-#if 0
-static void cert_gen_priv_key(char *path, int len)
-{
-    char cmd[512];
-    
-    sprintf(cmd, "openssl genrsa -out %s %d", 
-                path,
-                len);
-                
-    system(cmd);   
-}
 
-static void cert_gen_csr(char *keypath, char *csrpath)
-{
-    char cmd[512];
-
-    sprintf(cmd, "openssl req -sha256 -new -key %s -out \ 
-                       %s \
-                       -subj /C=TW/ST=Taiwan/L=Taipei/O=Moxa/OU=MGate/CN=\"10.123.6.32\"/emailAddress=taiwan@moxa.com",
-                       keypath,
-                       csrpath);
-    system(cmd);
-}
-
-static void cert_sign_cert(char *rootcert_path, char *rootkey_path,
-                                        int valid_day, char *cert_path)
-{
-    char cmd[512];
-
-    sprintf(cmd, "openssl x509 -req -in endentity.csr -CA %s \
-                  -CAkey %s -CAserial ca.serial -CAcreateserial \
-                  -days %d -out %s",
-                  rootcert_path,
-                  rootkey_path,
-                  valid_day,
-                  cert_path);
-    system(cmd);  
-}
-
-static int cert_combine_ip_key_cert(char *pem_path,
-                                                            char *ip,
-                                                            char *key_path,
-                                                            char *cert_path)
-{
-    struct sockaddr_in addr_in;
-    FILE *fpw, *fpr;
-    char active_ip[32] = {0};
-    char *buf;
-    int file_len;
-    /* open file for PEM format IP/private key/ certficate */
-    fpw = fopen(pem_path, "w+");
-
-    /* append active ip */
-    fwrite(ip, strlen(ip), 1, fpw);
-    fwrite("\n", 1, 1, fpw);
-
-    /* read .key and copy to .pem */
-    fpr = fopen(key_path, "r");
-    if (fpr == NULL)
-        return 0;
-    fseek(fpr, 0L, SEEK_END);
-    file_len = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    buf = (char*)calloc(file_len, sizeof(char));	
-    if (buf == NULL)
-        return 0;
-    fread(buf, sizeof(char), file_len, fpr);
-    fclose(fpr);
-    fwrite(buf, file_len, 1, fpw);
-
-    /* read .cert and copy to .pem */
-    fpr = fopen(cert_path, "r");
-    if (fpr == NULL)
-        return 0;
-    fseek(fpr, 0L, SEEK_END);
-    file_len = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    buf = (char*)calloc(file_len, sizeof(char));	
-    if (buf == NULL)
-        return 0;
-    fread(buf, sizeof(char), file_len, fpr);
-    fclose(fpr);
-    fwrite(buf, file_len, 1, fpw);    
-    fclose(fpw);
-
-    return 1;
-}
-#endif
 static int _ASN1_GENERALIZEDTIME_print(char *buf, ASN1_GENERALIZEDTIME *tm)
 {
     char *v;
@@ -449,50 +365,6 @@ int main(int argc, char *argv[])
                 CERT_ROOTCA_CERT_PATH);
     system(cmd);            
 #endif
-/* Test function for import */
-//#define IMPORT_TEST
-//#define DELETE_TEST
-//#define REGEN_TEST
-//#define ENCRYP_TEST
-//#define DECRY_TEST
-#ifdef DECRY_TEST
-    printf("test1\r\n");
-    mx_do_decry_b(CERT_ENDENTITY_PEM_PATH, cert_b);
-    printf("test2\r\n");
-    printf("%s\r\n", cert_b);
-    printf("test3\r\n");
-    return 0;
-#endif
-#ifdef ENCRYP_TEST
-    //mx_do_encry(CERT_ENDENTITY_PEM_PATH);
-#endif
-#ifdef IMPORT_TEST
-{
-    FILE *fpr;
-
-    fpr = fopen("import.pem", "r");
-    fseek(fpr, 0L, SEEK_END);
-    filelen = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    data = (char*)calloc(filelen, sizeof(char));	
-    if (data == NULL)
-        return 0;
-    fread(data, sizeof(char), filelen, fpr);
-    fclose(fpr);
-    //printf("%s\r\n", data);
-    ret = mx_import_cert(CERT_ENDENTITY_PEM_PATH, data, filelen, buf, BUF_SZ);
-}
-#endif
-#ifdef DELETE_TEST
-{
-    mx_cert_del(CERT_ENDENTITY_PEM_PATH);
-}
-#endif
-#ifdef REGEN_TEST
-{
-    mx_regen_cert();
-}
-#endif
     ret = mx_tell_cert_type(CERT_ENDENTITY_PEM_PATH);
     if (ret == CERT_TYPE_IMPORT) {
         printf("Certificate is Imported\r\n");
@@ -546,7 +418,7 @@ ck_valid:
         t = time(NULL);
 
         tm = *localtime(&t);
-        tm.tm_year += 20;
+        //tm.tm_year += 20;
         strftime(tmp, sizeof(tmp), "now_date:%c\r\n", &tm);
         dbg_printf(tmp);
         ret = cert_ck_expire(&tm, &rootca_date);

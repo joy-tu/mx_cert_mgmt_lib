@@ -32,52 +32,6 @@
 
 #define BUF_SZ 512
 #define VERSION "1.0.0"
-#if 0
-/* Test function for import */
-#define IMPORT_TEST
-#define DELETE_TEST
-#define REGEN_TEST
-#define ENCRYP_TEST
-#define DECRY_TEST
-#ifdef DECRY_TEST
-    printf("test1\r\n");
-    mx_do_decry_b(CERT_ENDENTITY_PEM_PATH, cert_b);
-    printf("test2\r\n");
-    printf("%s\r\n", cert_b);
-    printf("test3\r\n");
-    return 0;
-#endif
-#ifdef ENCRYP_TEST
-    mx_do_encry(CERT_ENDENTITY_PEM_PATH);
-#endif
-#ifdef IMPORT_TEST
-{
-    FILE *fpr;
-
-    fpr = fopen("import.pem", "r");
-    fseek(fpr, 0L, SEEK_END);
-    filelen = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    data = (char*)calloc(filelen, sizeof(char));	
-    if (data == NULL)
-        return 0;
-    fread(data, sizeof(char), filelen, fpr);
-    fclose(fpr);
-    //printf("%s\r\n", data);
-    ret = mx_import_cert(CERT_ENDENTITY_PEM_PATH, data, filelen, buf, BUF_SZ);
-}
-#endif
-#ifdef DELETE_TEST
-{
-    mx_cert_del(CERT_ENDENTITY_PEM_PATH);
-}
-#endif
-#ifdef REGEN_TEST
-{
-    mx_regen_cert();
-}
-#endif
-#endif
 /*****************************************************************************
  * Private functions
  ****************************************************************************/
@@ -105,8 +59,6 @@ static int test_cert_decry(char *file)
     char cert_b[4096];
     mx_do_decry_b(CERT_ENDENTITY_PEM_PATH, cert_b);
     
-    printf("%s\r\n", cert_b);
-
     return 0;
 }
 
@@ -125,9 +77,8 @@ static int test_cert_import(char *file)
         return 0;
     fread(data, sizeof(char), filelen, fpr);
     fclose(fpr);
-    //printf("%s\r\n", data);
-    ret = mx_import_cert(CERT_ENDENTITY_PEM_PATH, data, filelen, buf, BUF_SZ);
 
+    ret = mx_import_cert(CERT_ENDENTITY_PEM_PATH, data, filelen, buf, BUF_SZ);
 }
 static void _printf_version(void)
 {
