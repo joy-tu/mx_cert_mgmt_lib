@@ -12,10 +12,14 @@ CFLAGS := -Wall -O0 ${INCLUDE_PATH} ${COVERAGE}
 LDFLAGS := -lcmocka
 
 TARGETS := \
-	test_mx_timed_list \
-	test_mx_timed_event \
-	test_mx_timed_db \
-	test_mx_timed_config
+	test_mx_cert_lib
+#TARGETS := \
+#	test_mx_timed_list \
+#	test_mx_timed_event \
+#	test_mx_timed_db \
+#	test_mx_cert_lib
+#	test_mx_timed_config \
+#	test_mx_cert_lib 
 
 .PHONY: all
 all: ${TARGETS}
@@ -53,4 +57,8 @@ test_mx_timed_config: test_mx_timed_config.c ${SRC_DIR}/mx_timed_config.c
 		-Wl,--wrap=event_deregister \
 		-Wl,--wrap=timed_intf_init \
 		$< ${LDFLAGS}
+	./$@
+
+test_mx_cert_lib: test_mx_cert_lib.c 
+	gcc -o $@ ${CFLAGS} $< -lssl -l crypto -lmx-net -lmxtimed -L../platform/laputa/build -L/usr/lib
 	./$@

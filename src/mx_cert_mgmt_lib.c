@@ -4,7 +4,7 @@
  * @copyright Copyright (C) MOXA Inc. All rights reserved.
  * @license This software is distributed under the terms of the MOXA License. See the file COPYING-MOXA for details.
  * @author Joy Tu
- * @date 2021-0928
+ * @date 2021-10-06
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -129,12 +129,14 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
     AES_set_decrypt_key(sha256,128,&dec_key);
  
     fpr = fopen(CERT_ENDENTITY_PEM_PATH, "r");
+    if (fpr == NULL)
+        return -1;
     fseek(fpr, 0L, SEEK_END);
     filelen = ftell(fpr);
     fseek(fpr, 0L, SEEK_SET);	
     data = (char*)calloc(filelen, sizeof(char));	
     if (data == NULL)
-        return 0;
+        return -1;
     fread(data, sizeof(char), filelen, fpr);
     fclose(fpr);
     fpd = fopen(CERT_ENDENTITY_TMP_PATH, "w+");
@@ -143,6 +145,8 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
         fwrite(&dec_out[i], 1, 16, fpd);
     }
     fclose(fpd);
+
+    return 1;
 
 }
 static int do_encry(char *certpath, unsigned char *sha256)
@@ -380,10 +384,12 @@ static int check_cert_type(char *pem)
 {
     FILE *fp;
     char import_flag[128];
+    int ret;
     
-    mx_do_decry_f(pem);
+    ret = mx_do_decry_f(pem);
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
-    unlink(CERT_ENDENTITY_TMP_PATH);
+    if (ret == 1)
+        unlink(CERT_ENDENTITY_TMP_PATH);
 
     if (fp != NULL) {
         fgets(import_flag, sizeof(import_flag), fp);
@@ -728,7 +734,7 @@ int mx_do_decry_b(char *certpath, unsigned char *cert_ram)
 
 int mx_do_decry_f(char *certpath)
 {
-    int i;
+    int i, ret;
     unsigned char sha256[32];
     
     do_sha256(sha256);
@@ -737,5 +743,6 @@ int mx_do_decry_f(char *certpath)
 	printf("%02x", sha256[i]);
     printf("\r\n");
     
-    do_decry_f(certpath, sha256);
+    ret = do_decry_f(certpath, sha256);
+    return ret;
 }
