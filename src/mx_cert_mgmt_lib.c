@@ -61,8 +61,8 @@ static int check_cert_type(char *pem);
 /*****************************************************************************
  * Private functions
  ****************************************************************************/
-char Gseed[16] = {0x00, 0x02, 0x04, 0x08, 0x01, 0x03, 0x05, 0x07, 
-                            0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0x33, 0x94, 0x12};
+char Gseed[16] = {33, 40, 12, 99, 22, 44, 23, 49, 
+                            122, 112, 60, 21, 6, 57, 72, 103};
 static int do_fake_get_mac(char *mac)
 {
     mac[0] = 0x00;
@@ -77,13 +77,38 @@ static int do_fake_get_mac(char *mac)
 
 static int do_fate_get_seed(char *seed)
 {
-       memcpy(seed, Gseed, 16);
+    FILE *fpr;
+    char *data, tmp[16];
+    int filelen, i;
+    char *token;
 
-       return 1;
+    fpr = fopen(CERT_SEED_PATH, "r");
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);	
+    data = (char*)calloc(filelen, sizeof(char));	
+    if (data == NULL)
+        return -1;
+    fread(data, sizeof(char), filelen, fpr);
+    fclose(fpr);
+
+    token = strtok(data, ",");
+    i = 0;
+    tmp[i] = atoi(token);
+    i++;
+    while (i < 16) {
+        token = strtok(NULL, ",");
+        tmp[i] = atoi(token);
+        i++;
+    }
+    memcpy(seed, tmp, 16);
+
+    free(data);
+    return 1;
 }
 
 static int do_fake_get_serial_num(int *ser_no){
-        *ser_no = 1;
+    *ser_no = 1;
 }
 static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert_ram)
 {
