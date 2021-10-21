@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.12)
-project(mx-cert-mgmt VERSION 0.0.1 LANGUAGES C)
+project(mx-cert-mgmtd VERSION 0.0.1 LANGUAGES C)
 
 set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../../scripts")
 #include(astyle)
+set(MXCERT_LIB "mxcert")
 
 include_directories(
     ${PROJECT_ROOT}/include/
@@ -25,7 +26,23 @@ set(LIB_SOURCE_CODE_LIST
     #${PROJECT_ROOT}/src/mx_xxx_xxx.c
 )
 
-add_library("mxcert" SHARED ${LIB_SOURCE_CODE_LIST})
+add_library(${MXCERT_LIB} SHARED ${LIB_SOURCE_CODE_LIST})
+
+target_include_directories(
+    ${MXCERT_LIB} PRIVATE
+    ${PROJECT_ROOT}/include/
+    ${PROJECT_ROOT}/src/
+)
+
+set_target_properties(
+    ${MXCERT_LIB}
+    PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+    POSITION_INDEPENDENT_CODE ON
+    #    PUBLIC_HEADER ${PROJECT_ROOT}/include/mx_timed/mx_timed_intf.h
+)
+
 
 # TODO: add fPIC?
 #set_property(TARGET mxtimed PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -33,7 +50,7 @@ add_library("mxcert" SHARED ${LIB_SOURCE_CODE_LIST})
 set(LINK_LIB_LIST
 	#    "mx-event-agent"
     #    "pthread"
-    "mxcert"
+    ${MXCERT_LIB} 
     #    "parson"
     "ssl"
     "crypto"
@@ -47,6 +64,53 @@ add_compile_definitions(
 add_executable(${PROJECT_NAME} ${SOURCE_CODE_LIST})
 
 target_link_libraries(${PROJECT_NAME} ${LINK_LIB_LIST})
+
+# main app
+install(
+    TARGETS ${PROJECT_NAME}
+    RUNTIME DESTINATION /usr/bin
+    COMPONENT app
+)
+
+# Library
+#install(
+#   TARGETS "mxcert"
+#   LIBRARY DESTINATION /usr/lib
+#   COMPONENT lib
+#)
+
+install(
+    TARGETS ${MXCERT_LIB}
+    LIBRARY DESTINATION /usr/lib
+    COMPONENT lib
+)
+
+install(
+    FILES ../../rootca/rootca.key
+    DESTINATION /cert
+    COMPONENT lib
+)
+
+
+install(
+    FILES ../../rootca/rootca.pem
+    DESTINATION /cert
+    COMPONENT lib
+)
+
+install(
+    FILES ../../seed/seed
+    DESTINATION /cert
+    COMPONENT lib
+)
+
+set(CPACK_GENERATOR "DEB")
+set(CPACK_DEB_COMPONENT_INSTALL ON)
+set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Joy Tu")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+include(CPack)
 
 # test client
 #add_executable("mxtimec" ${PROJECT_ROOT}/src/mx_timed_client.c)
