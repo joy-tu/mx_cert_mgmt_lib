@@ -110,6 +110,65 @@ static int do_fate_get_seed(char *seed)
 static int do_fake_get_serial_num(int *ser_no){
     *ser_no = 1;
 }
+
+static int _ASN1_GENERALIZEDTIME_print(char *buf, ASN1_GENERALIZEDTIME *tm)
+{
+    char *v;
+    int i;
+    int y = 0, M = 0, d = 0;
+    
+    i = tm->length;
+    v = (char *)tm->data;
+
+    if(i < 12) goto err;
+    for(i = 0; i < 12; i++)
+        if((v[i] > '9') || (v[i] < '0')) goto err;
+    y = (v[0] - '0') * 1000 + (v[1] - '0') * 100 + (v[2] - '0') * 10 + (v[3] - '0');
+    M = (v[4] - '0') * 10 + (v[5] - '0');
+    if((M > 12) || (M < 1)) goto err;
+    d = (v[6] - '0') * 10 + (v[7] - '0');
+
+    sprintf(buf, "%d/%d/%d", y, M, d);
+    return(1);
+err:
+    sprintf(buf, " ");  /* Bad time value */
+    return(0);
+}
+
+static int _ASN1_UTCTIME_print(char *buf, ASN1_UTCTIME *tm)
+{
+    char *v;
+    int i;
+    int y = 0, M = 0, d = 0;
+    
+    i = tm->length;
+    v = (char *)tm->data;
+
+    if(i < 10) goto err;
+    for(i = 0; i < 10; i++)
+        if((v[i] > '9') || (v[i] < '0')) goto err;
+    y = (v[0] - '0') * 10 + (v[1] - '0');
+    if(y < 50) y += 100;
+    M = (v[2] - '0') * 10 + (v[3] - '0');
+    if((M > 12) || (M < 1)) goto err;
+    d = (v[4] - '0') * 10 + (v[5] - '0');
+
+    sprintf(buf, "%d/%d/%d", y + 1900, M, d);
+    return(1);
+err:
+    sprintf(buf, " ");  /* Bad time value */
+    return(0);
+}
+static int _ASN1_TIME_print(char *buf, ASN1_TIME *tm)
+{
+    if(tm->type == V_ASN1_UTCTIME)
+        return _ASN1_UTCTIME_print(buf, tm);
+    if(tm->type == V_ASN1_GENERALIZEDTIME)
+        return _ASN1_GENERALIZEDTIME_print(buf, tm);
+    sprintf(buf, " ");  /* Bad time value */
+    return(0);
+}
+
 static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert_ram)
 {
     char *data;
@@ -462,7 +521,7 @@ int mx_regen_cert(void)
     strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
     
     mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
-    mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH);
+    mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
     mx_cert_sign_cert(
             CERT_ENDENTITY_CSR_PATH,
             CERT_ROOTCA_CERT_PATH,
@@ -542,15 +601,16 @@ void mx_cert_gen_priv_key(char *path, int len)
     system(cmd);   
 }
 
-void mx_cert_gen_csr(char *keypath, char *csrpath)
+void mx_cert_gen_csr(char *keypath, char *csrpath, char *ip)
 {
     char cmd[512];
 
     sprintf(cmd, "openssl req -sha256 -new -key %s -out \ 
                        %s \
-                       -subj /C=TW/ST=Taiwan/L=Taipei/O=Moxa/OU=MGate/CN=\"10.123.6.32\"/emailAddress=taiwan@moxa.com",
+                       -subj /C=TW/ST=Taiwan/L=Taipei/O=Moxa/OU=MGate/CN=\"%s\"/emailAddress=taiwan@moxa.com",
                        keypath,
-                       csrpath);
+                       csrpath,
+                       ip);
     system(cmd);
 }
 
@@ -599,4 +659,38 @@ int mx_do_decry_f(char *certpath)
     
     ret = do_decry_f(certpath, sha256);
     return ret;
+}
+
+int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char *issueby)
+{
+    X509 *x;
+    char _buf[128];
+    int ret;
+    
+    mx_do_decry_f(certpath);
+    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
+    unlink(CERT_ENDENTITY_TMP_PATH);
+    /* Issued to */
+    ret = X509_NAME_get_text_by_NID(X509_get_subject_name(x), OBJ_txt2nid("CN"), _buf, 128);
+    printf("issueto = %s\r\n", _buf);
+    memcpy(issueto, _buf, strlen(_buf));
+    memset(_buf, 0, 128);
+    /* Issued by */
+    ret = X509_NAME_get_text_by_NID(X509_get_issuer_name(x), OBJ_txt2nid("CN"), _buf, 128);
+    printf("issueby = %s\r\n", _buf);
+    memcpy(issueby, _buf, 128);
+    memset(_buf, 0, 128);
+    /* Valid from */
+    ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
+    printf("start = %s\r\n", _buf);
+
+    memcpy(start, _buf, strlen(_buf));
+    memset(_buf, 0, 128);
+    /* Valid to */
+    ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
+    printf("end = %s\r\n", _buf);
+
+    memcpy(end, _buf, strlen(_buf));
+    memset(_buf, 0, 128);
+    X509_free(x);
 }
