@@ -58,7 +58,8 @@ static int test_cert_decry(char *file)
 {
     char cert_b[4096];
     mx_do_decry_b(CERT_ENDENTITY_PEM_PATH, cert_b);
-    
+
+    printf("%s\r\n", cert_b);
     return 0;
 }
 

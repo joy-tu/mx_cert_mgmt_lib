@@ -93,32 +93,6 @@ static void _printf_help(void)
            );
 
 }
-static char myip[] = "/var/tmp/_myip";
-
-int net_get_my_ip_by_ifname(char *ifname, unsigned char *addr)
-{
-	char cmd[256], buf[128];
-	char *bufp;
-	FILE *fp;
-
-	sprintf(cmd, "ifconfig %s | awk '$1 == \"inet\" {print $2}' > %s",  ifname, myip);
-	system(cmd);	
-	
-	bufp = buf;
-	fp = fopen(myip, "r");
-	if (fp != NULL) {
-		fgets(bufp, sizeof(buf), fp);
-		fclose(fp);
-	}
-	if (strlen(bufp) <= 0) {
-		return -1;
-	}
-	sprintf(cmd, "rm -rf %s", myip);
-	system(cmd);	
-	*addr = inet_addr(bufp);
-	
-	return 0;
-}
 
 static int check_certificate(int active_if)
 {
@@ -135,7 +109,7 @@ static int check_certificate(int active_if)
 
 
     if (fp != NULL) {
-        dbg_printf("\nFound pem file, now check ip address...\n");
+        printf("\nFound pem file, now check ip address...\n");
         fgets(ipstr, sizeof(ipstr), fp);
         fclose(fp);
         net_get_my_ip_by_ifname("eth0", &ip);
@@ -162,7 +136,7 @@ static int check_import(int active_if)
     if (ret == 1)
         unlink(CERT_ENDENTITY_TMP_PATH);
     if (fp != NULL) {
-        dbg_printf("\nFound cert file, now check import...\n");
+        printf("\nFound cert file, now check import...\n");
         fgets(import_flag, sizeof(import_flag), fp);
         fclose(fp);
 
@@ -349,7 +323,7 @@ int main(int argc, char *argv[])
     }
     addr_in.sin_addr.s_addr = ip;
     strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
-    dbg_printf("active_ip = %s\r\n", active_ip);
+    printf("active_ip = %s\r\n", active_ip);
 
 #if 0 
     sprintf(cmd, "openssl genrsa -out %s %d", 
@@ -432,7 +406,7 @@ ck_valid:
         } else if (ret < 0)
             printf("todo send for end-cert expired (%d)\r\n", ret); 
         
-        printf("now: %d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+        printf("now: %d-%02d-%02d %02d:%02d:%02d, checking expiration date...\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
         sleep(CERT_SLEEP_1DAY);
     }
