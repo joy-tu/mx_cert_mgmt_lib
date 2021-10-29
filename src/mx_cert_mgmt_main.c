@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
         /* Generate Key & CSR & sign cert & combine */
         printf("Generating certificate................\r\n");
         mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
-        mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH);
+        mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
         mx_cert_sign_cert(
             CERT_ENDENTITY_CSR_PATH,
             CERT_ROOTCA_CERT_PATH,
@@ -378,14 +378,21 @@ ck_valid:
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
     ret = cert_get_valid_date(_buf, &rootca_date);
     strftime(tmp, sizeof(tmp), "rootca_date:%c\r\n", &rootca_date);
+    X509_free(x);
     dbg_printf(tmp);
     x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x));   
     ret = cert_get_valid_date(_buf, &endtitiy_date);
     strftime(tmp, sizeof(tmp), "endtitiy_date:%c\r\n", &endtitiy_date);
+    X509_free(x);
     dbg_printf(tmp);
      //sleep(CERT_SLEEP_5MIN);
+    {
+        char start[128], end[128], issueto[128], issueby[128];
+        mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
+        printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
+    }
     while (1) {
         /* compare the date between now and rootca/end entity */
         double ret;

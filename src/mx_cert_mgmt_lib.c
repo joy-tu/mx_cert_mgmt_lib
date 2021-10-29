@@ -32,7 +32,7 @@
  /*****************************************************************************
  * Definition
  ****************************************************************************/
-#define DEBUG_MX_CERT_MGMT
+//#define DEBUG_MX_CERT_MGMT
 #ifdef DEBUG_MX_CERT_MGMT
 #define dbg_printf  printf
 #else
@@ -128,7 +128,7 @@ static int _ASN1_GENERALIZEDTIME_print(char *buf, ASN1_GENERALIZEDTIME *tm)
     if((M > 12) || (M < 1)) goto err;
     d = (v[6] - '0') * 10 + (v[7] - '0');
 
-    sprintf(buf, "%d/%d/%d", y, M, d);
+    sprintf(buf, "%d-%d-%d", y, M, d);
     return(1);
 err:
     sprintf(buf, " ");  /* Bad time value */
@@ -153,7 +153,7 @@ static int _ASN1_UTCTIME_print(char *buf, ASN1_UTCTIME *tm)
     if((M > 12) || (M < 1)) goto err;
     d = (v[4] - '0') * 10 + (v[5] - '0');
 
-    sprintf(buf, "%d/%d/%d", y + 1900, M, d);
+    sprintf(buf, "%d-%d-%d", y + 1900, M, d);
     return(1);
 err:
     sprintf(buf, " ");  /* Bad time value */
@@ -664,33 +664,27 @@ int mx_do_decry_f(char *certpath)
 int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char *issueby)
 {
     X509 *x;
-    char _buf[128];
     int ret;
     
     mx_do_decry_f(certpath);
     x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
     unlink(CERT_ENDENTITY_TMP_PATH);
     /* Issued to */
-    ret = X509_NAME_get_text_by_NID(X509_get_subject_name(x), OBJ_txt2nid("CN"), _buf, 128);
-    printf("issueto = %s\r\n", _buf);
-    memcpy(issueto, _buf, strlen(_buf));
-    memset(_buf, 0, 128);
+
+    ret = X509_NAME_get_text_by_NID(X509_get_subject_name(x), OBJ_txt2nid("CN"), issueto, 128);
+    dbg_printf("Issueto %s\r\n", issueto);
+
     /* Issued by */
-    ret = X509_NAME_get_text_by_NID(X509_get_issuer_name(x), OBJ_txt2nid("CN"), _buf, 128);
-    printf("issueby = %s\r\n", _buf);
-    memcpy(issueby, _buf, 128);
-    memset(_buf, 0, 128);
+    ret = X509_NAME_get_text_by_NID(X509_get_issuer_name(x), OBJ_txt2nid("CN"), issueby, 128);
+    dbg_printf("issueby %s\r\n", issueby);
+
     /* Valid from */
-    ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
-    printf("start = %s\r\n", _buf);
+    ret = _ASN1_TIME_print(start, X509_get_notBefore(x));
+    dbg_printf("start %s\r\n", start);
 
-    memcpy(start, _buf, strlen(_buf));
-    memset(_buf, 0, 128);
     /* Valid to */
-    ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
-    printf("end = %s\r\n", _buf);
+    ret = _ASN1_TIME_print(end, X509_get_notAfter(x)); 
+    dbg_printf("end %s\r\n", end);
 
-    memcpy(end, _buf, strlen(_buf));
-    memset(_buf, 0, 128);
     X509_free(x);
 }

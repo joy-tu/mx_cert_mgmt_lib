@@ -23,6 +23,7 @@ set(SOURCE_CODE_LIST
 
 set(LIB_SOURCE_CODE_LIST
     ${PROJECT_ROOT}/src/mx_cert_mgmt_lib.c
+    ${PROJECT_ROOT}/src/mx_cert_mgmt_rest.c
     #${PROJECT_ROOT}/src/mx_xxx_xxx.c
 )
 
@@ -49,12 +50,19 @@ set_target_properties(
 
 set(LINK_LIB_LIST
 	#    "mx-event-agent"
-    #    "pthread"
     ${MXCERT_LIB} 
-    #    "parson"
+    "parson"
     "ssl"
     "crypto"
     "mx-net"
+)
+
+set(LINK_MXLIB_LIST
+    "parson"
+    "ssl"
+    "crypto"
+    "mx-net"
+    "rest"
 )
 
 add_compile_definitions(
@@ -64,7 +72,7 @@ add_compile_definitions(
 add_executable(${PROJECT_NAME} ${SOURCE_CODE_LIST})
 
 target_link_libraries(${PROJECT_NAME} ${LINK_LIB_LIST})
-
+target_link_libraries(${MXCERT_LIB} ${LINK_MXLIB_LIST})
 # main app
 install(
     TARGETS ${PROJECT_NAME}

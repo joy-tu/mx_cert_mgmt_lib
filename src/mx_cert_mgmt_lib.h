@@ -18,6 +18,19 @@
 #define CERT_TYPE_IMPORT 1
 #define CERT_TYPE_SELFGEN 2 
 
+typedef enum
+{
+    CERT_REST_OK                                = 0,
+    CERT_REST_PARAM_FAIL                = -1,
+    CERT_REST_INIT_FAIL                  = -2,
+    CERT_REST_CB_REGISTER_FAIL           = -3,
+    CERT_REST_GET_VAL_FAIL               = -4,
+    CERT_REST_SET_VAL_FAIL               = -5,
+    CERT_REST_TYPE_CONVERT_FAIL          = -6,
+    CERT_REST_MALLOC_FAIL                = -7,
+    CERT_REST_VAL_OUT_OF_RANGE           = -8,
+    CERT_REST_JSON_FAIL                         = -9
+} CERT_REST_RET;
 /*****************************************************************************
  * Public functions
  ****************************************************************************/
