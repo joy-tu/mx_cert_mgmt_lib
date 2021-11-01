@@ -44,8 +44,8 @@
 #define DATA_NESTED_RESPONSE      DATA"."RESPONSE
 #define NESTED_MESSAGE                  ERROR"."MESSAGE
 #define BUF_SZ 512
-
-#ifdef DEBUG_MX_CERT_MGMT
+#define DEBUG_MX_CERT_REST
+#ifdef DEBUG_MX_CERT_REST
 #define dbg_printf  printf
 #else
 #define dbg_printf(...) 
@@ -227,7 +227,7 @@ static int _get_enddate(JSON_Value *root)
 /*****************************************************************************
  * Private functions
  ****************************************************************************/
-static int _rest_get_cert_info(
+REST_HTTP_STATUS _rest_get_cert_info(
     const char *uri,
     char *input_data,
     int32_t input_data_size
@@ -282,7 +282,7 @@ BAD_REQ:
     return REST_HTTP_STATUS_BAD_REQUEST;
 }
 
-static int _rest_post_cert_pem(
+REST_HTTP_STATUS _rest_post_cert_pem(
     const char *uri,
     char *input_data,
     int32_t input_data_size
@@ -293,7 +293,7 @@ static int _rest_post_cert_pem(
     char buf[BUF_SZ];
     JSON_Value *output_val = NULL;
     JSON_Object *output_obj;
-
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     char *jsonptr = NULL, *error_message = NULL;
 
     if (uri == NULL) {
@@ -302,56 +302,56 @@ static int _rest_post_cert_pem(
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if (parse_boundary(&boundary, input_data) != MULTIFORM_OK) {
         dbg_printf("parse_boundary fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if (mp_parse(&multiform_item_list, boundary, strlen(boundary), input_data, input_data_size) != MULTIFORM_OK) {
         dbg_printf("mp_parse fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if ((multiform_item_list == NULL) || (mx_import_cert(CERT_ENDENTITY_PEM_PATH, multiform_item_list->data, multiform_item_list->data_size, buf, BUF_SZ) < 0)) {
         dbg_printf("get input data fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if (create_output(&output_val, &output_obj) != CERT_REST_OK) {
         dbg_printf("get output_data fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if (json_object_dotset_string(output_obj, DATA_NESTED_RESPONSE, CANOPEN_OPTION_RESPONSE_SUCCESS) != JSONSuccess) {
         dbg_printf("get response fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if ((jsonptr = json_serialize_to_string(output_val)) == NULL) {
         dbg_printf("json to string fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if (rest_write(jsonptr, strlen(jsonptr)) != REST_OK) {
         dbg_printf("write to handle fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     free(boundary);
     mp_free_all_parts(multiform_item_list);
     json_free_serialized_string(jsonptr);
@@ -360,6 +360,7 @@ static int _rest_post_cert_pem(
     return REST_HTTP_STATUS_CREATED;
 
 CERT_POST_BAD_REQUEST:
+    printf("Joy %s-%d\r\n", __func__, __LINE__);
     free(boundary);
     mp_free_all_parts(multiform_item_list);
     json_free_serialized_string(jsonptr);
@@ -379,8 +380,120 @@ CERT_POST_BAD_REQUEST:
     return REST_HTTP_STATUS_BAD_REQUEST;
 
 }
+REST_HTTP_STATUS _rest_post_self_cert_regen(const char *uri, char *input_data, int32_t input_data_size)
+{
+    uint32_t action_option;
 
-static int _rest_del_cert_pem(
+    JSON_Value *input_val = NULL, *output_val = NULL;
+    JSON_Object *input_obj, *output_obj;
+
+    char *jsonptr = NULL, *error_message = NULL;
+
+    if (uri == NULL)
+    {
+        dbg_printf("param fail\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_REGEN_BAD_REQUEST;
+    }
+    if (mx_regen_cert()  == -1) {
+        dbg_printf("mx_regen_cert fail\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_REGEN_BAD_REQUEST;
+    }
+#if 0
+    if (parse_input_obj(&input_val, &input_obj, input_data) != CERT_REST_OK)
+    {
+        dbg_printf("get input data fail\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_REGEN_BAD_REQUEST;
+    }
+
+    if (get_json_num_boolean(input_obj, ACTION_OPTION, &action_option) != CERT_REST_OK)
+    {
+        dbg_printf("get action_option fail\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_REGEN_BAD_REQUEST;
+    }
+    if (check_val_range(action_option, CANOPEN_ACTION_OPTION_APPLY, CANOPEN_ACTION_OPTION_DISCARD) != CERT_REST_OK)
+    {
+        dbg_printf("out of range\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_REGEN_BAD_REQUEST;
+    }
+
+    if (action_option == CANOPEN_ACTION_OPTION_APPLY)
+    {
+        canopen_save_restart();
+    }
+    else if (action_option == CANOPEN_ACTION_OPTION_DISCARD)
+    {
+        canopen_config_restore();
+    }
+#endif
+    if (create_output(&output_val, &output_obj) != CERT_REST_OK)
+    {
+        dbg_printf("get output_data fail\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_REGEN_BAD_REQUEST;
+    }
+
+    if (json_object_dotset_string(output_obj, DATA_NESTED_RESPONSE, CANOPEN_OPTION_RESPONSE_SUCCESS) != JSONSuccess)
+    {
+        dbg_printf("get response fail\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_REGEN_BAD_REQUEST;
+    }
+
+    if ((jsonptr = json_serialize_to_string(output_val)) == NULL)
+    {
+        dbg_printf("json to string fail\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_REGEN_BAD_REQUEST;
+    }
+
+    if (rest_write(jsonptr, strlen(jsonptr)) != REST_OK)
+    {
+        dbg_printf("write to handle fail\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_REGEN_BAD_REQUEST;
+    }
+
+    json_free_serialized_string(jsonptr);
+    json_value_free(input_val);
+    json_value_free(output_val);
+    return REST_HTTP_STATUS_CREATED;
+
+CERT_REGEN_BAD_REQUEST:
+    json_free_serialized_string(jsonptr);
+    json_value_free(input_val);
+    json_value_free(output_val);
+
+    if (create_output_error_message(&jsonptr, error_message) != CERT_REST_OK)
+    {
+        dbg_printf("fail");
+    }
+
+    if (rest_write(jsonptr, strlen(jsonptr)) != REST_OK)
+    {
+        dbg_printf("json write to handler\n");
+    }
+
+    json_free_serialized_string(jsonptr);
+    free(error_message);
+
+    return REST_HTTP_STATUS_BAD_REQUEST;
+}
+
+REST_HTTP_STATUS _rest_del_cert_pem(
     const char *uri,
     char *input_data,
     int32_t input_data_size
@@ -389,16 +502,20 @@ static int _rest_del_cert_pem(
     char *jsonptr = NULL, *error_message = NULL;
 
     if (uri == NULL) {
-        dbg_printf("param fail\n");
+        dbg_printf("%s-%d param fail\n", __func__, __LINE__);
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_DELETE_REQUEST;
     }
-
+    
+    if (mx_cert_del(CERT_ENDENTITY_PEM_PATH) == 1)
+        return REST_HTTP_STATUS_NO_CONTENT;
+        
+    error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+    sprintf(error_message, RESPONSE_INVALID);
 CERT_DELETE_REQUEST:
-
     if (create_output_error_message(&jsonptr, error_message) != CERT_REST_OK) {
-        dbg_printf("fail");
+        dbg_printf("%s-%d fail\r\n", __func__, __LINE__);
     }
 
     if (rest_write(jsonptr, strlen(jsonptr)) != REST_OK) {
@@ -455,7 +572,17 @@ int cert_mgmt_rest_init(char *module_name, int *id)
         fprintf(stderr, "(%s:%d)register rest cb fail.\n", __FILE__, __LINE__);
         return -1;
     }
-
+    /* post self-cert regeneation */
+#if 1
+    if ((ret = rest_cb_register(ret_id, 
+                                "/self-cert", 
+                                REST_OP_POST, 
+                                _rest_post_self_cert_regen)) != REST_OK)
+    {
+        fprintf(stderr, "(%s:%d)register rest cb fail.\n", __FILE__, __LINE__);
+        return -1;
+    }
+#endif    
     /* delete certificate file (PEM) */
     if ((ret = rest_cb_register(ret_id,
                                 "/pemfile",

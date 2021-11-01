@@ -536,6 +536,7 @@ int mx_regen_cert(void)
     unlink(CERT_ENDENTITY_CERT_PATH);
     if (!ret)
         return -1;    
+    return 1;
 }
 
 int mx_cert_combine_ip_key_cert(char *pem_path,

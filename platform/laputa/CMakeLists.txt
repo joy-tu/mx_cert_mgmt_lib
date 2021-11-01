@@ -112,6 +112,11 @@ install(
     COMPONENT lib
 )
 
+install(
+    FILES ../../include/mx_cert_mgmt/mx_cert_mgmt_rest.h
+    DESTINATION /usr/include/mx_cert_mgmt/
+    COMPONENT lib
+)
 set(CPACK_GENERATOR "DEB")
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
