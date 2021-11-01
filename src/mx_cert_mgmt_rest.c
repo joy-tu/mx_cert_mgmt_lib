@@ -281,6 +281,36 @@ BAD_REQ:
 
     return REST_HTTP_STATUS_BAD_REQUEST;
 }
+int _parse_boundary(char **boundary, const char *data)
+{
+    int boundary_len = 0, i;
+
+    if (boundary == NULL || data == NULL)
+    {
+        return MULTIFORM_FAIL;
+    }
+
+    if (strchr(data, '\r') == NULL)
+    {
+        return MULTIFORM_FAIL;
+    }
+
+    for (i = 0; *(data + i) != '\r'; ++i)
+    {
+        boundary_len++;
+    }
+
+    boundary_len -= strlen("--");
+
+    if ((*boundary = calloc(sizeof(char), (strlen("boundary=") + boundary_len + 1))) == NULL)
+    {
+        return MULTIFORM_FAIL;
+    }
+
+    snprintf(*boundary, (strlen("boundary=") + boundary_len + 1), "boundary=%s", data + strlen("--"));
+
+    return MULTIFORM_OK;
+}
 
 REST_HTTP_STATUS _rest_post_cert_pem(
     const char *uri,
@@ -293,7 +323,8 @@ REST_HTTP_STATUS _rest_post_cert_pem(
     char buf[BUF_SZ];
     JSON_Value *output_val = NULL;
     JSON_Object *output_obj;
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
+    int ret;
+    
     char *jsonptr = NULL, *error_message = NULL;
 
     if (uri == NULL) {
@@ -302,56 +333,62 @@ REST_HTTP_STATUS _rest_post_cert_pem(
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
+    printf("Joy %s-%d, parse=%d\r\n", __func__, __LINE__, 
+    parse_boundary(&boundary, input_data));
+
     if (parse_boundary(&boundary, input_data) != MULTIFORM_OK) {
-        dbg_printf("parse_boundary fail\n");
+        dbg_printf("parse_boundary fail----\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if (mp_parse(&multiform_item_list, boundary, strlen(boundary), input_data, input_data_size) != MULTIFORM_OK) {
         dbg_printf("mp_parse fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
-    if ((multiform_item_list == NULL) || (mx_import_cert(CERT_ENDENTITY_PEM_PATH, multiform_item_list->data, multiform_item_list->data_size, buf, BUF_SZ) < 0)) {
+    if ((multiform_item_list == NULL) ) {
         dbg_printf("get input data fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
+    ret = mx_import_cert(CERT_ENDENTITY_PEM_PATH, 
+                                        multiform_item_list->data, 
+                                        multiform_item_list->data_size, 
+                                        buf, 
+                                        BUF_SZ);
+    if (ret != 0) {
+        dbg_printf("mx_import_cert fail\n");
+        error_message = malloc(strlen(RESPONSE_INVALID) + 1);
+        sprintf(error_message, RESPONSE_INVALID);
+        goto CERT_POST_BAD_REQUEST;
+    }
     if (create_output(&output_val, &output_obj) != CERT_REST_OK) {
         dbg_printf("get output_data fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if (json_object_dotset_string(output_obj, DATA_NESTED_RESPONSE, CANOPEN_OPTION_RESPONSE_SUCCESS) != JSONSuccess) {
         dbg_printf("get response fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if ((jsonptr = json_serialize_to_string(output_val)) == NULL) {
         dbg_printf("json to string fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
     if (rest_write(jsonptr, strlen(jsonptr)) != REST_OK) {
         dbg_printf("write to handle fail\n");
         error_message = malloc(strlen(RESPONSE_INVALID) + 1);
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
     free(boundary);
     mp_free_all_parts(multiform_item_list);
     json_free_serialized_string(jsonptr);
