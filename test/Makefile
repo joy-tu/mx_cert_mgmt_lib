@@ -60,5 +60,5 @@ test_mx_timed_config: test_mx_timed_config.c ${SRC_DIR}/mx_timed_config.c
 	./$@
 
 test_mx_cert_lib: test_mx_cert_lib.c 
-	gcc -o $@ ${CFLAGS} $< -lssl -l crypto -lmx-net -lmxcert -L../platform/laputa/build -L/usr/lib
+	gcc -o $@ ${CFLAGS} $< -lssl -l crypto -lmx-net -lrest-cert -L../platform/laputa/build -L/usr/lib
 	./$@

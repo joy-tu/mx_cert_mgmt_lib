@@ -5,7 +5,7 @@ set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../../scripts")
 #include(astyle)
-set(MXCERT_LIB "mxcert")
+set(MXCERT_LIB "rest-cert")
 
 include_directories(
     ${PROJECT_ROOT}/include/
