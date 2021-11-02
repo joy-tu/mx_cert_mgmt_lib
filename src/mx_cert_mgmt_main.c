@@ -344,6 +344,7 @@ int main(int argc, char *argv[])
     strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
     printf("active_ip = %s\r\n", active_ip);
     mk_dir(CERT_ENDENTITY_RUN_DIR);
+    mk_dir("/data");
     mk_dir(CERT_ENDENTITY_RW_DIR);
 #if 0 
     sprintf(cmd, "openssl genrsa -out %s %d", 

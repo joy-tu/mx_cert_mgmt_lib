@@ -333,7 +333,7 @@ REST_HTTP_STATUS _rest_post_cert_pem(
         sprintf(error_message, RESPONSE_INVALID);
         goto CERT_POST_BAD_REQUEST;
     }
-    printf("Joy %s-%d, parse=%d\r\n", __func__, __LINE__, 
+    printf("%s-%d, parse=%d\r\n", __func__, __LINE__, 
     parse_boundary(&boundary, input_data));
 
     if (parse_boundary(&boundary, input_data) != MULTIFORM_OK) {
@@ -397,7 +397,7 @@ REST_HTTP_STATUS _rest_post_cert_pem(
     return REST_HTTP_STATUS_CREATED;
 
 CERT_POST_BAD_REQUEST:
-    printf("Joy %s-%d\r\n", __func__, __LINE__);
+    printf("%s-%d\r\n", __func__, __LINE__);
     free(boundary);
     mp_free_all_parts(multiform_item_list);
     json_free_serialized_string(jsonptr);
