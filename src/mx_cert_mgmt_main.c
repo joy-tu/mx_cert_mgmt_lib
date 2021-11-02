@@ -27,6 +27,9 @@
 #include <def/mx_def.h>
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
+#include<dirent.h>  
+#include<sys/types.h>  
+#include<sys/stat.h>  
 #include "mx_cert_mgmt_lib.h"
 
 /*****************************************************************************
@@ -43,6 +46,7 @@
 #define SSL_CERT_IMPORT_FLAG "import"
 #define CERT_ROOTCA_VALID_DAY 3650 
 #define CERT_ROOTCA_KEY_LENGTH 2048
+#define MODE (S_IRWXU | S_IRWXG | S_IRWXO)  
 /*****************************************************************************
  * Private types/enumerations/variables
  ****************************************************************************/
@@ -274,6 +278,22 @@ static int cert_ck_expire(struct tm *now, struct tm *cert)
         return days; /* will expire */
 }
 
+  
+static int mk_dir(char *dir)  
+{  
+    DIR *mydir = NULL;  
+    if ((mydir= opendir(dir))==NULL) {  
+      int ret = mkdir(dir, MODE);
+      if (ret != 0) {  
+          return -1;  
+      }  
+      printf("%s created sucess!/n", dir);  
+    } else {  
+        printf("%s exist!/n", dir);  
+    }  
+  
+    return 0;  
+}  
 /*****************************************************************************
  * Public functions
  ****************************************************************************/
@@ -323,7 +343,8 @@ int main(int argc, char *argv[])
     addr_in.sin_addr.s_addr = ip;
     strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
     printf("active_ip = %s\r\n", active_ip);
-
+    mk_dir(CERT_ENDENTITY_RUN_DIR);
+    mk_dir(CERT_ENDENTITY_RW_DIR);
 #if 0 
     sprintf(cmd, "openssl genrsa -out %s %d", 
                 CERT_ROOTCA_KEY_PATH,

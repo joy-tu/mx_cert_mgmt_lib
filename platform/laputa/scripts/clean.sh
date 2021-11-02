@@ -18,4 +18,4 @@ rm -rf _CPack_Packages
 rm -rf cmake_install.cmake
 rm -rf install*
 rm -rf *.deb
-rm -rf libmx*
+rm -rf librest*
