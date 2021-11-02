@@ -420,6 +420,7 @@ int mx_cert_del(char *fname/*int cert_idx*/)
     if (ret == CERT_TYPE_IMPORT) {
         dbg_printf("Delete User's Import PEM\r\n");
         unlink(fname);
+        mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_DELETED);
         return 1;
     } else {
         return -1;
@@ -487,6 +488,8 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
     sprintf(cmd, "mv %s %s", tmpFile, fname);
     system(cmd);
     mx_do_encry(fname);
+    mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_IMPORTED);
+
     // sys_send_events(EVENT_ID_SSLIMPORT, 0); 
 error:
     if (fp)
@@ -536,6 +539,8 @@ int mx_regen_cert(void)
     unlink(CERT_ENDENTITY_CERT_PATH);
     if (!ret)
         return -1;    
+    mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_REGEN);
+        
     return 1;
 }
 

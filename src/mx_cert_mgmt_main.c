@@ -31,7 +31,6 @@
 #include<sys/types.h>  
 #include<sys/stat.h>  
 #include "mx_cert_mgmt_lib.h"
-
 /*****************************************************************************
  * Definition
  ****************************************************************************/
@@ -319,6 +318,7 @@ int main(int argc, char *argv[])
     double seconds;
 
     dbg_printf("%s-%d, version=%s\r\n", __func__, __LINE__,VERSION);
+    
     //system("apt-get install -y net-tools > /null");
     while ((c = getopt_long(argc, argv, optstring, opts, NULL)) != -1) {
         switch (c) {
@@ -346,6 +346,8 @@ int main(int argc, char *argv[])
     mk_dir(CERT_ENDENTITY_RUN_DIR);
     mk_dir("/data");
     mk_dir(CERT_ENDENTITY_RW_DIR);
+
+    //mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE);
 #if 0 
     sprintf(cmd, "openssl genrsa -out %s %d", 
                 CERT_ROOTCA_KEY_PATH,
@@ -426,14 +428,19 @@ ck_valid:
         ret = cert_ck_expire(&tm, &rootca_date);
         if (ret > 0) {
             printf("todo send for rootca will expired (%d)\r\n", ret);
-        } else if (ret < 0)
-            printf("todo send for rootca expired (%d)\r\n", ret);        
+            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE);
+        } else if (ret < 0) {
+            printf("todo send for rootca expired (%d)\r\n", ret);      
+            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_EXPIRE);
+        }
         ret = cert_ck_expire(&tm, &endtitiy_date);
         if (ret > 0) {
             printf("todo send for end-cert will expired (%d)\r\n", ret);
-        } else if (ret < 0)
+            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_WILL_EXPIRE);
+        } else if (ret < 0) {
             printf("todo send for end-cert expired (%d)\r\n", ret); 
-        
+            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_EXPIRE);
+        }
         printf("now: %d-%02d-%02d %02d:%02d:%02d, checking expiration date...\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
         sleep(CERT_SLEEP_1DAY);

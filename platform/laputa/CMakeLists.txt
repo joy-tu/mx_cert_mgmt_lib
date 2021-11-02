@@ -18,12 +18,17 @@ set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(SOURCE_CODE_LIST
     ${PROJECT_ROOT}/src/mx_cert_mgmt_main.c
+
+    #${PROJECT_ROOT}/src/mx_lldp_event.c
+    ${PROJECT_ROOT}/src/mx_cert_mgmt_event.c
     #${PROJECT_ROOT}/src/mx_xxx.c
 )
 
 set(LIB_SOURCE_CODE_LIST
     ${PROJECT_ROOT}/src/mx_cert_mgmt_lib.c
     ${PROJECT_ROOT}/src/mx_cert_mgmt_rest.c
+    #${PROJECT_ROOT}/src/mx_lldp_event.c
+    ${PROJECT_ROOT}/src/mx_cert_mgmt_event.c
     #${PROJECT_ROOT}/src/mx_xxx_xxx.c
 )
 
@@ -49,7 +54,7 @@ set_target_properties(
 #set_property(TARGET mxtimed PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 set(LINK_LIB_LIST
-	#    "mx-event-agent"
+    "mx-event-agent"
     ${MXCERT_LIB} 
     "parson"
     "ssl"
@@ -58,6 +63,7 @@ set(LINK_LIB_LIST
 )
 
 set(LINK_MXLIB_LIST
+    "mx-event-agent"
     "parson"
     "ssl"
     "crypto"
