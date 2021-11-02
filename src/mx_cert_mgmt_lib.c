@@ -28,6 +28,8 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <openssl/aes.h>
+#include <openssl/ts.h>
+#include<mx_net/mx_net.h>
 #include "mx_cert_mgmt_lib.h"
  /*****************************************************************************
  * Definition
@@ -275,7 +277,7 @@ static int do_sha256(unsigned char *sha256)
     int i, *seed_int;
     
     do_fake_get_mac(mac);
-    do_fake_get_serial_num(&serial_num);
+    do_fake_get_serial_num((int *)&serial_num);
     do_fate_get_seed(seed);
     
     seed[5] += mac[0];
@@ -509,7 +511,7 @@ error:
 int mx_regen_cert(void)
 {
     int ret;       
-    unsigned long ip;
+    uint32_t ip;
     char active_ip[32] = {0};
     struct sockaddr_in addr_in;
 
@@ -521,7 +523,7 @@ int mx_regen_cert(void)
 
     net_get_my_ip_by_ifname("eth0", &ip);
     addr_in.sin_addr.s_addr = ip;
-    strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+    //strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
     
     mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
     mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
@@ -611,7 +613,7 @@ void mx_cert_gen_csr(char *keypath, char *csrpath, char *ip)
 {
     char cmd[512];
 
-    sprintf(cmd, "openssl req -sha256 -new -key %s -out \ 
+    sprintf(cmd, "openssl req -sha256 -new -key %s -out \
                        %s \
                        -subj /C=TW/ST=Taiwan/L=Taipei/O=Moxa/OU=MGate/CN=\"%s\"/emailAddress=taiwan@moxa.com",
                        keypath,

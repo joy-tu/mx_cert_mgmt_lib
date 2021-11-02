@@ -24,12 +24,15 @@
 #include <openssl/pem.h>
 #include <openssl/bio.h>
 #include <openssl/x509v3.h>
+#include <openssl/x509.h>
 #include <def/mx_def.h>
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
+#include <openssl/ts.h>
 #include<dirent.h>  
 #include<sys/types.h>  
 #include<sys/stat.h>  
+#include<mx_net/mx_net.h>
 #include "mx_cert_mgmt_lib.h"
 /*****************************************************************************
  * Definition
@@ -99,7 +102,7 @@ static void _printf_help(void)
 static int check_certificate(int active_if)
 {
     FILE *fp;
-    unsigned long ip;
+    uint32_t ip;
     struct sockaddr_in addr_in;
     char ipstr[128], active_ip[32];
     int ret;
@@ -304,7 +307,7 @@ int main(int argc, char *argv[])
 {
     int c = 0, ret;
     int buf_len, file_len;
-    unsigned long ip;
+    uint32_t ip;
     char active_ip[32] = {0};
     char cmd[512];
     struct sockaddr_in addr_in;
