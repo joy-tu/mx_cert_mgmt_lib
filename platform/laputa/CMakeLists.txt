@@ -129,6 +129,36 @@ set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Joy Tu")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+#####################################################
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Joy Tu <joy.tu@moxa.com>")
+set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Moxa Certificate Daemon & Library")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.1-6), libc6 (<< 3)")
+#set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+#set(CPACK_DEBIAN_ENABLE_COMPONENT_DEPENDS ON)
+#set(CMAKE_INSTALL_RPATH "/usr/lib")
+set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS ON)
+set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS_POLICY ">=")
+
+
+# version
+set(CPACK_DEBIAN_PACKAGE_RELEASE 3)
+
+# dev
+set(CPACK_DEBIAN_LIB_PACKAGE_NAME "mx-cert-mgmtd-lib")
+set(CPACK_DEBIAN_LIB_PACKAGE_PREDEPENDS "libparson1, librest1, mx-event, mx-net")
+set(CPACK_DEBIAN_LIB_DESCRIPTION "Moxa Cert Mgmt Library")
+
+# daemon
+set(CPACK_DEBIAN_APP_PACKAGE_NAME "mx-cert-mgmtd-app")
+set(CPACK_DEBIAN_APP_PACKAGE_PREDEPENDS "libparson1, librest1, mx-net, mx-event")
+set(CPACK_DEBIAN_APP_DESCRIPTION "Moxa Cert Mgmt Library")
+
+set(CPACK_DEBIAN_PACKAGE_DEBUG ON)
+
+
+
+
 include(CPack)
 
 # test client

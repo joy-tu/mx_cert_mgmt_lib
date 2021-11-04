@@ -257,7 +257,7 @@ REST_HTTP_STATUS _rest_get_cert_info(
         goto BAD_REQ;
     }
 
-    if (rest_write(json_string, strlen(json_string) + 1) != REST_OK) {
+    if (rest_write(json_string, strlen(json_string)) != REST_OK) {
         error = CERT_REST_SET_VAL_FAIL;
         goto BAD_REQ;
     }
@@ -581,7 +581,7 @@ CERT_DELETE_REQUEST:
 int cert_mgmt_rest_init(char *module_name, int *id)
 {
     int ret, ret_id;
-    printf("%s-%d\r\n", __func__, __LINE__);
+    //printf("%s-%d\r\n", __func__, __LINE__);
     if (module_name == NULL || id == NULL) {
         fprintf(stderr, "%s line: %d\n", __FILE__, __LINE__);
         return -1;
