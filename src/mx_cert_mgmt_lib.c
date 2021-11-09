@@ -315,6 +315,8 @@ static int check_cert_type(char *pem)
     int ret;
     
     ret = mx_do_decry_f(pem);
+    if (ret < 0)
+        return ret;    
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
     if (ret == 1)
         unlink(CERT_ENDENTITY_TMP_PATH);
@@ -419,7 +421,8 @@ int mx_cert_del(char *fname/*int cert_idx*/)
     int ret;
 
     ret = check_cert_type(fname);
-    if (ret == CERT_TYPE_IMPORT) {
+    /* At 2021/11/9, we decice that we can delete all certificate. */
+    if (ret == CERT_TYPE_IMPORT || ret == CERT_TYPE_SELFGEN) {
         dbg_printf("Delete User's Import PEM\r\n");
         unlink(fname);
         mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_DELETED);
@@ -674,7 +677,9 @@ int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char
     X509 *x;
     int ret;
     
-    mx_do_decry_f(certpath);
+    ret = mx_do_decry_f(certpath);
+    if (ret < 0)
+        return ret;
     x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
     unlink(CERT_ENDENTITY_TMP_PATH);
     /* Issued to */
