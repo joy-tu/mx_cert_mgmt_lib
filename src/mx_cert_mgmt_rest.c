@@ -53,6 +53,21 @@
 /*****************************************************************************
  * Private types/enumerations/variables
  ****************************************************************************/
+const char *rest_error_msg[] =
+{
+    "Success",
+    "Invalid parameters",
+    "Init error",
+    "CB_REGISTER error",
+    "get value is error",
+    "set value is  error",
+    "TYPE_CONVERT_FAIL",
+    "MALLOC_FAIL",
+    "VAL_OUT_OF_RANGE",
+    "Json fail",
+    "file is not exist"
+};
+
 static CERT_REST_RET create_output(JSON_Value **output_val, JSON_Object **output_obj)
 {
     if (output_val == NULL) {
@@ -162,6 +177,58 @@ static int _json_set(
 
     return 0;
 }
+
+static int _rest_error(
+    int error_id,
+    const char *error_message
+)
+{
+    JSON_Value *json_value = NULL;
+    int error;
+    char *p = NULL;
+
+    if (!(json_value = json_value_init_object()))
+    {
+        return -1;
+    }
+
+    if (_json_set(json_value, "error.message", (void *)error_message, JSONString) < 0)
+    {
+        return -1;
+    }
+#if 0
+    if (_json_set(json_value, "error.code", (void *)&error_id, JSONNumber) < 0)
+    {
+        return -1;
+    }
+#endif
+    if ((p = json_serialize_to_string(json_value)) == NULL)
+    {
+        return -1;
+    }
+
+    error = rest_write(p, strlen(p) + 1);
+
+    json_value_free(json_value);
+    json_free_serialized_string(p);
+    return 0;
+}
+
+static int _get_issueby(JSON_Value *root)
+{
+    int ret;
+    char start[128], end[128], issueto[128], issueby[128];
+    ret = mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
+    if (ret == -1)
+        return CERT_REST_GET_VAL_FAIL;
+    //printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
+
+    if (_json_set(root, "data.issueby", issueby, JSONString) < 0) {
+        return CERT_REST_JSON_FAIL;
+    }
+
+    return CERT_REST_OK;
+}
 /**
  * @brief Get issueto value from config and append to JSON
  *
@@ -171,8 +238,11 @@ static int _json_set(
  */
 static int _get_issueto(JSON_Value *root)
 {
+    int ret;
     char start[128], end[128], issueto[128], issueby[128];
-    mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
+    ret = mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
+    if (ret == -1)
+        return CERT_REST_GET_VAL_FAIL;
     //printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
 
     if (_json_set(root, "data.issueto", issueto, JSONString) < 0) {
@@ -191,8 +261,11 @@ static int _get_issueto(JSON_Value *root)
  */
 static int _get_startdate(JSON_Value *root)
 {
+    int ret;
     char start[128], end[128], issueto[128], issueby[128];
-    mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
+    ret = mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
+    if (ret == -1)
+        return CERT_REST_GET_VAL_FAIL;
     //printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
     if (_json_set(root, "data.startdate", start, JSONString) < 0) {
         return CERT_REST_JSON_FAIL;
@@ -210,8 +283,11 @@ static int _get_startdate(JSON_Value *root)
  */
 static int _get_enddate(JSON_Value *root)
 {
+    int ret;
     char start[128], end[128], issueto[128], issueby[128];
-    mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
+    ret = mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
+    if (ret == -1)
+        return CERT_REST_GET_VAL_FAIL;
     //printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
     if (_json_set(root, "data.enddate", end, JSONString) < 0) {
         return CERT_REST_JSON_FAIL;
@@ -249,8 +325,25 @@ REST_HTTP_STATUS _rest_get_cert_info(
 
     /* get config */
     error = _get_startdate(output);
+    if (error < 0) {
+        error = CERT_REST_FILE_NOT_EXIST;
+        goto BAD_REQ;    
+    }
     error = _get_enddate(output);
+    if (error < 0) {
+        error = CERT_REST_FILE_NOT_EXIST;
+        goto BAD_REQ;    
+    }    
     error = _get_issueto(output);
+    if (error < 0) {
+        error = CERT_REST_FILE_NOT_EXIST;
+        goto BAD_REQ;    
+    }    
+    error = _get_issueby(output);
+    if (error < 0) {
+        error = CERT_REST_FILE_NOT_EXIST;
+        goto BAD_REQ;    
+    }    
     //error = _get_tz(output);
     if ((json_string = json_serialize_to_string(output)) == NULL) {
         error = CERT_REST_JSON_FAIL;
@@ -277,7 +370,7 @@ BAD_REQ:
         json_free_serialized_string(json_string);
     }
 
-//    _rest_error(error, rest_error_msg[(0 - error)]);
+    _rest_error(error, rest_error_msg[(0 - error)]);
 
     return REST_HTTP_STATUS_BAD_REQUEST;
 }
@@ -610,7 +703,7 @@ int cert_mgmt_rest_init(char *module_name, int *id)
         return -1;
     }
     /* post self-cert regeneation */
-#if 1
+#if 0 /* I and center decide to remove this function at 11/8 */
     if ((ret = rest_cb_register(ret_id, 
                                 "/self-cert", 
                                 REST_OP_POST, 

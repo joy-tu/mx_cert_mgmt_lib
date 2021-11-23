@@ -103,6 +103,8 @@ static int check_certificate(int active_if)
 {
     FILE *fp;
     uint32_t ip;
+    int inter, i;
+    uint32_t my_ip[4];
     struct sockaddr_in addr_in;
     char ipstr[128], active_ip[32];
     int ret;
@@ -117,9 +119,21 @@ static int check_certificate(int active_if)
         printf("\nFound pem file, now check ip address...\n");
         fgets(ipstr, sizeof(ipstr), fp);
         fclose(fp);
-        net_get_my_ip_by_ifname("eth0", &ip);
-        addr_in.sin_addr.s_addr = ip;
-        strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+        inter = net_max_interfaces();
+        if (inter > 0) {
+            for (i = 0; i < inter; i++) {
+                net_get_my_ip(i, &my_ip[i]);
+                printf("my_ip - %x\r\n", my_ip[i]);
+            }
+            addr_in.sin_addr.s_addr = my_ip[0];
+            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+            printf("active_ip = %s\r\n", active_ip);        
+        } else { /* for docker */
+            net_get_my_ip_by_ifname("eth0", &ip);
+            addr_in.sin_addr.s_addr = ip;
+            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+        }        
+
         dbg_printf("ipstr=[%s], activeIP=[%s]\n", ipstr, active_ip);
         if (!strncmp(ipstr, active_ip, strlen(active_ip)))
             return 1; /* Active IP == PEM's IP */
@@ -305,10 +319,11 @@ static int mk_dir(char *dir)
 
 int main(int argc, char *argv[])
 {
-    int c = 0, ret;
+    int c = 0, ret, inter, i;
     int buf_len, file_len;
     uint32_t ip;
     char active_ip[32] = {0};
+    uint32_t my_ip[4];
     char cmd[512];
     struct sockaddr_in addr_in;
     FILE *fpw, *fpr;
@@ -337,15 +352,25 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
         }
     }
-
-    if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
-	dbg_printf("Ok****net_get_my_ip_by_ifname - %x****\r\n", ip);
-    } else {
-	dbg_printf("Fail****net_get_my_ip_by_ifname ****\r\n");
+    inter = net_max_interfaces();
+    if (inter > 0) {
+        for (i = 0; i < inter; i++) {
+            net_get_my_ip(i, &my_ip[i]);
+            printf("my_ip - %x\r\n", my_ip[i]);
+        }
+        addr_in.sin_addr.s_addr = my_ip[0];
+        strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+        printf("active_ip = %s\r\n", active_ip);        
+    } else { /* for docker */
+        if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
+            dbg_printf("Ok****net_get_my_ip_by_ifname - %x****\r\n", ip);
+        } else {
+            dbg_printf("Fail****net_get_my_ip_by_ifname ****\r\n");
+        }
+        addr_in.sin_addr.s_addr = ip;
+        strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+        printf("active_ip = %s\r\n", active_ip);
     }
-    addr_in.sin_addr.s_addr = ip;
-    strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
-    printf("active_ip = %s\r\n", active_ip);
     mk_dir(CERT_ENDENTITY_RUN_DIR);
     mk_dir("/data");
     mk_dir(CERT_ENDENTITY_RW_DIR);
@@ -359,7 +384,7 @@ int main(int argc, char *argv[])
 
     sprintf(cmd, "openssl req -new -x509 -key %s -days %d -sha256 \
                 -extensions v3_ca -out %s \
-                -subj /C=TW/ST=Taiwan/L=Taipei/O=Moxa/OU=MGate/CN=\"Moxa Inc.\"/emailAddress=taiwan@moxa.com",
+                -subj /C=TW/ST=Taiwan/L="New Taipei"/O=Moxa/OU=MGate/CN=\"Moxa Inc.\"/emailAddress=taiwan@moxa.com",
                 CERT_ROOTCA_KEY_PATH,
                 CERT_ROOTCA_VALID_DAY,
                 CERT_ROOTCA_CERT_PATH);
