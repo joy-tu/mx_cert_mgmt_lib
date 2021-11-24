@@ -15,19 +15,22 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
- #include <sys/ioctl.h>/* FIONREAD */
+#include <sys/ioctl.h>/* FIONREAD */
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <def/mx_def.h>
+#ifdef __ZEPHYR__
+#else   /* Linux */
 #include <linux/sockios.h>
 #include <openssl/crypto.h>
 #include <openssl/pem.h>
 #include <openssl/bio.h>
 #include <openssl/x509v3.h>
 #include <openssl/ssl.h>
-#include <def/mx_def.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <openssl/aes.h>
+#endif
 #include <rest/rest_parser.h>
 #include <rest/multipart_parser.h>
 #include <parson.h>

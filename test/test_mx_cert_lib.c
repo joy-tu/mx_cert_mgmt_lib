@@ -27,7 +27,6 @@
 #include <def/mx_def.h>
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
-#include "mx_timed.h"
 #include "mx_cert_mgmt_lib.h"
 
 #define BUF_SZ 512

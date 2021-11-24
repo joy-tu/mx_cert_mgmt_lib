@@ -19,16 +19,19 @@
 #include <sys/ioctl.h>/* FIONREAD */
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <def/mx_def.h>
+#ifdef __ZEPHYR__
+#else   /* Linux */
 #include <linux/sockios.h>
 #include <openssl/crypto.h>
 #include <openssl/pem.h>
 #include <openssl/bio.h>
 #include <openssl/x509v3.h>
 #include <openssl/x509.h>
-#include <def/mx_def.h>
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
 #include <openssl/ts.h>
+#endif
 #include<dirent.h>  
 #include<sys/types.h>  
 #include<sys/stat.h>  
@@ -310,6 +313,7 @@ static int mk_dir(char *dir)
   
     return 0;  
 }  
+
 /*****************************************************************************
  * Public functions
  ****************************************************************************/
