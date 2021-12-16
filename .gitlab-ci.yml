@@ -1,19 +1,59 @@
 stages:
-  - deploy
+  - analysis
+  - build
+  - upload
 
-pages:
-  image: node:latest
-  stage: deploy
+
+cppcheck:
+  stage: analysis
+  image: 164073796161.dkr.ecr.ap-northeast-1.amazonaws.com/ci/protocol:${IMG_TAG}-v${IMG_VERSION}
+  variables:
+    IMG_TAG: cppcheck
+    IMG_VERSION: "2.4.1"
   script:
-    - npm install -g redoc-cli
-    - redoc-cli bundle -o public/index.html docs/timed.yml
+    - ./scripts/cppcheck.sh
+  allow_failure: true
+
+astyle:
+  stage: analysis
+  image: 164073796161.dkr.ecr.ap-northeast-1.amazonaws.com/ci/protocol:${IMG_TAG}-v${IMG_VERSION}
+  variables:
+    IMG_TAG: astyle
+    IMG_VERSION: "3.1"
+  script:
+    - ./scripts/astyle.sh
+  allow_failure: true
+
+
+.build-deb:
+  stage: build
+  image: registry.gitlab.com/moxa/ibg/software/platform/laputa/docker-laputa:${ARCH}-latest
+  variables:
+    IMG_TAG: build-laputa
+  script:
+    - cat /image_version
+    - ./platform/laputa/scripts/build.sh
+    - mv ./platform/laputa/build/*.deb ./platform/laputa/
   artifacts:
     paths:
-      - public
-  only:
-    refs:
-      - master
-      - develop
-    changes:
-      - docs/*.yml
-      - .gitlab-ci.yml
+      - "platform/laputa/*.deb"
+    expire_in: 1 day
+
+build-deb-amd64:
+  extends: .build-deb
+  variables:
+    ARCH: amd64
+
+build-deb-armhf:
+  extends: .build-deb
+  variables:
+    ARCH: armhf
+
+
+upload-deb:
+  stage: upload
+  image: 164073796161.dkr.ecr.ap-northeast-1.amazonaws.com/ci/awscli
+  variables:
+    S3_TARGET: s3://mxswdc2/modules/builds/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}/${CI_PIPELINE_ID}
+  script:
+    - aws s3 cp . ${S3_TARGET} --recursive --exclude "*" --include "*.deb"
