@@ -376,7 +376,7 @@ int main(int argc, char *argv[])
         printf("active_ip = %s\r\n", active_ip);
     }
     mk_dir(CERT_ENDENTITY_RUN_DIR);
-    mk_dir("/data");
+    mk_dir(SYSTEM_WRITABLE_FILES_PATH);
     mk_dir(CERT_ENDENTITY_RW_DIR);
 
     //mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE);
