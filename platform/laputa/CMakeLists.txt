@@ -55,7 +55,7 @@ set_target_properties(
 
 set(LINK_LIB_LIST
     "mx-event-agent"
-    ${MXCERT_LIB} 
+    ${MXCERT_LIB}
     "parson"
     "ssl"
     "crypto"
@@ -146,12 +146,12 @@ set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS_POLICY ">=")
 
 # dev
 set(CPACK_DEBIAN_LIB_PACKAGE_NAME "mx-cert-mgmtd-lib")
-set(CPACK_DEBIAN_LIB_PACKAGE_PREDEPENDS "libparson1, librest1, mx-event, libmx-net1")
+set(CPACK_DEBIAN_LIB_PACKAGE_PREDEPENDS "libparson1, libmx-rest1, mx-event, libmx-net1")
 set(CPACK_DEBIAN_LIB_DESCRIPTION "Moxa Cert Mgmt Library")
 
 # daemon
 set(CPACK_DEBIAN_APP_PACKAGE_NAME "mx-cert-mgmtd-app")
-set(CPACK_DEBIAN_APP_PACKAGE_PREDEPENDS "libparson1, librest1, libmx-net1, mx-event")
+set(CPACK_DEBIAN_APP_PACKAGE_PREDEPENDS "libparson1, libmx-rest1, libmx-net1, mx-event")
 set(CPACK_DEBIAN_APP_DESCRIPTION "Moxa Cert Mgmt Library")
 
 set(CPACK_DEBIAN_PACKAGE_DEBUG ON)
