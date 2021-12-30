@@ -113,15 +113,14 @@ static int check_certificate(int active_if)
     int ret;
 
     ret = mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
-    fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
-    if (ret == 1)
-        unlink(CERT_ENDENTITY_TMP_PATH);
 
+    fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
 
     if (fp != NULL) {
         printf("\nFound pem file, now check ip address...\n");
         fgets(ipstr, sizeof(ipstr), fp);
         fclose(fp);
+        unlink(CERT_ENDENTITY_TMP_PATH);
         inter = net_max_interfaces();
         if (inter > 0) {
             for (i = 0; i < inter; i++) {
@@ -154,13 +153,15 @@ static int check_import(int active_if)
     int ret;
     
     ret= mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    if (ret < 0)
+        return ret;        
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
-    if (ret == 1)
-        unlink(CERT_ENDENTITY_TMP_PATH);
+
     if (fp != NULL) {
         printf("\nFound cert file, now check import...\n");
         fgets(import_flag, sizeof(import_flag), fp);
         fclose(fp);
+        unlink(CERT_ENDENTITY_TMP_PATH);
 
         if (!strncmp(import_flag, SSL_CERT_IMPORT_FLAG, strlen(SSL_CERT_IMPORT_FLAG)))
             return 1;
@@ -400,7 +401,7 @@ int main(int argc, char *argv[])
     } else {
         printf("Certificate is Self-Gened\r\n");
     }
-    if (check_import(1)) {   // Found import.
+    if (check_import(1) == 1) {   // Found import.
         goto ck_valid;
     }
     ret = check_certificate(1);
@@ -426,7 +427,9 @@ int main(int argc, char *argv[])
     }
 ck_valid:
     /* Get rootca && end entity expiration date */
-    mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    ret = mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    if (ret < 0)
+        return ret;      
     x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
     unlink(CERT_ENDENTITY_TMP_PATH);
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
@@ -446,7 +449,7 @@ ck_valid:
     {
         char start[128], end[128], issueto[128], issueby[128];
         mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
-        printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
+        dbg_printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
     }
     while (1) {
         /* compare the date between now and rootca/end entity */
@@ -473,7 +476,7 @@ ck_valid:
             printf("todo send for end-cert expired (%d)\r\n", ret); 
             mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_EXPIRE);
         }
-        printf("now: %d-%02d-%02d %02d:%02d:%02d, checking expiration date...\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+        dbg_printf("now: %d-%02d-%02d %02d:%02d:%02d, checking expiration date...\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
         sleep(CERT_SLEEP_1DAY);
     }

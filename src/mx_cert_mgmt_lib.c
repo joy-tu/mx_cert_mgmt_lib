@@ -410,13 +410,11 @@ static int check_cert_type(char *pem)
     if (ret < 0)
         return ret;    
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
-    if (ret == 1)
-        unlink(CERT_ENDENTITY_TMP_PATH);
 
     if (fp != NULL) {
         fgets(import_flag, sizeof(import_flag), fp);
         fclose(fp);
-
+        unlink(CERT_ENDENTITY_TMP_PATH);
         if (!strncmp(import_flag, SSL_CERT_IMPORT_FLAG, strlen(SSL_CERT_IMPORT_FLAG))) {
             return CERT_TYPE_IMPORT;
         } else
