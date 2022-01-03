@@ -41,7 +41,7 @@ typedef enum
  ****************************************************************************/
 int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char *issueby);
 void mx_cert_sign_cert(char *csr_path, char *rootcert_path, char *rootkey_path,
-                                        int valid_day, char *cert_path) ;                   
+                                        int valid_day, char *cert_path, char *ip);
 void mx_cert_gen_csr(char *keypath, char *csrpath, char *ip);
 void mx_cert_gen_priv_key(char *path, int len);
 int mx_cert_combine_ip_key_cert(char *pem_path, char *ip, 
