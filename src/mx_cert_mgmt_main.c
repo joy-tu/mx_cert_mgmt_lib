@@ -417,7 +417,8 @@ int main(int argc, char *argv[])
             CERT_ROOTCA_CERT_PATH,
             CERT_ROOTCA_KEY_PATH,
             CERT_ENDENTITY_VALID_DAY,
-            CERT_ENDENTITY_CERT_PATH);
+            CERT_ENDENTITY_CERT_PATH,
+            active_ip);
         ret = mx_cert_combine_ip_key_cert(CERT_ENDENTITY_PEM_PATH,
                 active_ip,
                 CERT_ENDENTITY_KEY_PATH,

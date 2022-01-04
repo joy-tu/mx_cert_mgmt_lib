@@ -625,7 +625,8 @@ int mx_regen_cert(void)
             CERT_ROOTCA_CERT_PATH,
             CERT_ROOTCA_KEY_PATH,
             CERT_ENDENTITY_VALID_DAY,
-            CERT_ENDENTITY_CERT_PATH);
+            CERT_ENDENTITY_CERT_PATH,
+            active_ip);
     ret = mx_cert_combine_ip_key_cert(CERT_ENDENTITY_PEM_PATH,
             active_ip,
             CERT_ENDENTITY_KEY_PATH,
@@ -716,16 +717,23 @@ void mx_cert_gen_csr(char *keypath, char *csrpath, char *ip)
 }
 
 void mx_cert_sign_cert(char *csr_path, char *rootcert_path, char *rootkey_path,
-                                        int valid_day, char *cert_path)
+                                        int valid_day, char *cert_path, char *ip)
 {
     char cmd[512];
 
-    sprintf(cmd, "openssl x509 -req -in %s -CA %s \
+    /* Use default 'sh' to execute following command will report POSIX error:
+     *   syntax error near unexpected token `('
+     * So we use 'bash -c' instead.
+     */
+    snprintf(cmd, sizeof(cmd), "bash -c \"openssl x509 -req -in %s -CA %s \
                   -CAkey %s -CAserial ca.serial -CAcreateserial \
-                  -days %d -out %s",
+                  -extensions SAN \
+                  -extfile <(printf '[SAN]\\nsubjectAltName=IP:%s') \
+                  -days %d -out %s\"",
                   csr_path,
                   rootcert_path,
                   rootkey_path,
+                  ip,
                   valid_day,
                   cert_path);
     system(cmd);  
