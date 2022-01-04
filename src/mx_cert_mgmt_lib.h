@@ -1,7 +1,6 @@
 #ifndef __MX_CERT_MGMT_LIG_H__
 #define __MX_CERT_MGMT_LIG_H__
 #include <def/mx_def.h>
-#include "mx_cert_mgmt_event.h"
 
 /*****************************************************************************
  * Definition

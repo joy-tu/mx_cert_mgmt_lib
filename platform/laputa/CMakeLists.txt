@@ -119,7 +119,7 @@ install(
 )
 
 install(
-    FILES ../../include/mx_cert_mgmt/mx_cert_mgmt_rest.h
+    FILES ../../include/mx_cert_mgmt/mx_cert_mgmt_rest.h ../../src/mx_cert_mgmt_lib.h
     DESTINATION /usr/include/mx_cert_mgmt/
     COMPONENT lib
 )

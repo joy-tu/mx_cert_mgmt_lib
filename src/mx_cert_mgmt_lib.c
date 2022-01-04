@@ -34,6 +34,7 @@
 #endif
 #include<mx_net/mx_net.h>
 #include "mx_cert_mgmt_lib.h"
+#include "mx_cert_mgmt_event.h"
  /*****************************************************************************
  * Definition
  ****************************************************************************/
@@ -68,94 +69,14 @@ static int check_cert_type(char *pem);
  ****************************************************************************/
 char Gseed[16] = {33, 40, 12, 99, 22, 44, 23, 49, 
                             122, 112, 60, 21, 6, 57, 72, 103};
-static int ifindex_to_name(int ifindex, char *ifname, int name_size)
-{
-    char buf[128], *str, *token, *saveptr;
-    FILE *fp;
-    int index;
-    mx_net_ret_t ret = MX_NET_FAIL;
 
-    /* Example:
-     * auto lo br0
-     * auto lo bond0
-     * auto lo lan0 lan1 */
-    snprintf(buf, sizeof(buf), "awk '$1==\"auto\" {print $2,$3,$4}' /etc/network/interfaces 2>/dev/null");
-
-    fp = popen(buf, "r");
-
-    if (fp != NULL)
-    {
-        memset(buf, 0, sizeof(buf));
-
-        if (fgets(buf, sizeof(buf) - 1, fp) != NULL)
-        {
-            index = 0;
-
-            for (str = (char *)buf; ; str = NULL)
-            {
-                token = strtok_r(str, " \n", &saveptr);
-
-                if (token == NULL)
-                {
-                    /*  no /etc/network/interfaces in docker environment or not used on cross-compiler host */
-#if defined(__x86_64__) || defined(__i386__)
-                    strncpy(ifname, "ens33", name_size); /* default network name on Debian */
-#else
-                    strncpy(ifname, "eth0", name_size);
-#endif
-                    ret = MX_NET_OK;
-                    break;
-                }
-
-                if (!strcmp(token, "lo"))
-                {
-                    continue;
-                }
-
-                if (index == ifindex)
-                {
-                    strncpy(ifname, token, name_size);
-                    ret = MX_NET_OK;
-                    break;
-                }
-
-                index++;
-            }
-        }
-
-        fclose(fp);
-    }
-
-    return ret;
-}
-
-int net_get_my_mac_by_ifname(char *ifname, char *addr)
-{
-    memcpy(addr, sys_getnetworkinfo(ifname, SIOCGIFHWADDR), 18);
-    
-    return MX_NET_OK;
-}
-
-int net_get_my_mac(int ifindex, char *addr)
-{
-    char ifname[32];
-
-    if (ifindex_to_name(ifindex, ifname, sizeof(ifname)) == MX_NET_OK)
-    {
-        return net_get_my_mac_by_ifname(ifname, addr);
-    } else {
-        return net_get_my_mac_by_ifname("eth0", addr);
-    }
-
-    return MX_NET_FAIL;
-}
 static int do_fake_get_mac(char *mac)
 {
 #if 1
     char mac_str[18];
     
-    net_get_my_mac(0, mac);
-    sscanf(mac, "%x:%x:%x:%x:%x:%x", 
+    net_get_my_mac(0, mac_str, sizeof(mac_str));
+    sscanf(mac_str, "%x:%x:%x:%x:%x:%x", 
         &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
 #if 0
     mac[0] = 0x00;
@@ -177,6 +98,8 @@ static int do_fate_get_seed(char *seed)
     char *token;
 
     fpr = fopen(CERT_SEED_PATH, "r");
+    if (fpr == NULL)
+        return -1;
     fseek(fpr, 0L, SEEK_END);
     filelen = ftell(fpr);
     fseek(fpr, 0L, SEEK_SET);	

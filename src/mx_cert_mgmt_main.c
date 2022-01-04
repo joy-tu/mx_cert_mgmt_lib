@@ -37,6 +37,7 @@
 #include<sys/stat.h>  
 #include<mx_net/mx_net.h>
 #include "mx_cert_mgmt_lib.h"
+#include "mx_cert_mgmt_event.h"
 /*****************************************************************************
  * Definition
  ****************************************************************************/
