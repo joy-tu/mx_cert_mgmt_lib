@@ -306,11 +306,9 @@ static int do_encry(char *certpath, unsigned char *sha256)
 
 static int do_sha256(unsigned char *sha256)
 {
-    EVP_CIPHER_CTX *ctx;
-    unsigned char digest[SHA256LEN];
-    unsigned int outlen;
+    SHA256_CTX sha_ctx;
     unsigned char mac[MACLEN], serial_num, seed[SEEDLEN];
-    int i, *seed_int;
+    int *seed_int;
     
     do_fake_get_mac(mac);
     do_fake_get_serial_num((int *)&serial_num);
@@ -326,16 +324,11 @@ static int do_sha256(unsigned char *sha256)
     seed_int = (int *)&seed[0];
     *seed_int += serial_num;
         
-    ctx = EVP_CIPHER_CTX_new();
+    SHA256_Init(&sha_ctx);
+    SHA256_Update(&sha_ctx, seed, SEEDLEN);
+    SHA256_Final(sha256, &sha_ctx);
 
-    EVP_DigestInit(ctx, EVP_sha256());
-    EVP_DigestUpdate(ctx, seed, SEEDLEN);
-    EVP_DigestFinal(ctx, digest, &outlen);
-#if 0    
-    for (i=0; i<outlen; i++)
-	dbg_printf("%02x", digest[i]);
-#endif
-    memcpy(sha256, digest, 32);
+    return 0;
 }
 /**
  * @brief:  Check the type of cerificate file.
@@ -703,7 +696,7 @@ void mx_cert_sign_cert(char *csr_path, char *rootcert_path, char *rootkey_path,
 int mx_do_encry(char *certpath)
 {
     int i;
-    unsigned char sha256[32];
+    unsigned char sha256[SHA256LEN];
     
     do_sha256(sha256);
     
@@ -713,7 +706,7 @@ int mx_do_encry(char *certpath)
 int mx_do_decry_b(char *certpath, unsigned char *cert_ram)
 {
     int i;
-    unsigned char sha256[32];
+    unsigned char sha256[SHA256LEN];
     
     do_sha256(sha256);
     
