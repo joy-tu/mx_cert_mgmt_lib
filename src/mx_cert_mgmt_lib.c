@@ -283,7 +283,7 @@ static int do_encry(char *certpath, unsigned char *sha256)
     data = (char*)calloc(filelen, sizeof(char));	
     if (data == NULL)
     {
-        close(fpr);
+        fclose(fpr);
         return -1;
     }
     fread(data, sizeof(char), filelen, fpr);
