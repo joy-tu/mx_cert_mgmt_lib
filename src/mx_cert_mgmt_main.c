@@ -114,6 +114,8 @@ static int check_certificate(int active_if)
     int ret;
 
     ret = mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    if (ret < 0)
+        return 0;
 
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
 
@@ -434,6 +436,17 @@ ck_valid:
         return ret;      
     x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
     unlink(CERT_ENDENTITY_TMP_PATH);
+    if (x == NULL)
+    {
+        printf("TS_CONF_load_cert(%s) failed!\n", CERT_ENDENTITY_TMP_PATH);
+        /* net_get_my_mac() will not fill MAC if no interface found,
+         * resulting in do_sha256() using different key each time called,
+         * and certificate will not correctly decrpyted so
+         * TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH) will return NULL.
+         * Segmentation fault when calling X509_get_notBefore(NULL)
+         * in the following */
+        return -1;
+    }
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
     ret = cert_get_valid_date(_buf, &rootca_date);
@@ -441,6 +454,8 @@ ck_valid:
     X509_free(x);
     dbg_printf(tmp);
     x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
+    if (x == NULL)
+        return -1;
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x));   
     ret = cert_get_valid_date(_buf, &endtitiy_date);
@@ -482,5 +497,5 @@ ck_valid:
 
         sleep(CERT_SLEEP_1DAY);
     }
-    return 1;
+    return 0;
 }
