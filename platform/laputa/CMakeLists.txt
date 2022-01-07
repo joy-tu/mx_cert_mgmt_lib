@@ -121,7 +121,7 @@ install(
 install(
     FILES ../../include/mx_cert_mgmt/mx_cert_mgmt_rest.h ../../src/mx_cert_mgmt_lib.h
     DESTINATION /usr/include/mx_cert_mgmt/
-    COMPONENT lib
+    COMPONENT dev
 )
 set(CPACK_GENERATOR "DEB")
 set(CPACK_DEB_COMPONENT_INSTALL ON)
@@ -144,20 +144,22 @@ set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS_POLICY ">=")
 # version
 #set(CPACK_DEBIAN_PACKAGE_RELEASE 3)
 
-# dev
+# lib
 set(CPACK_DEBIAN_LIB_PACKAGE_NAME "mx-cert-mgmtd-lib")
 set(CPACK_DEBIAN_LIB_PACKAGE_PREDEPENDS "libparson1, libmx-rest1, mx-event, libmx-net1")
 set(CPACK_DEBIAN_LIB_DESCRIPTION "Moxa Cert Mgmt Library")
 
 # daemon
 set(CPACK_DEBIAN_APP_PACKAGE_NAME "mx-cert-mgmtd-app")
-set(CPACK_DEBIAN_APP_PACKAGE_PREDEPENDS "libparson1, libmx-rest1, libmx-net1, mx-event")
-set(CPACK_DEBIAN_APP_DESCRIPTION "Moxa Cert Mgmt Library")
+set(CPACK_DEBIAN_APP_PACKAGE_PREDEPENDS "libparson1, libmx-rest1, libmx-net1, mx-event, mx-cert-mgmtd-lib")
+set(CPACK_DEBIAN_APP_DESCRIPTION "Moxa Cert Mgmt Daemon")
+
+# dev
+set(CPACK_DEBIAN_DEV_PACKAGE_NAME "mx-cert-mgmtd-dev")
+set(CPACK_DEBIAN_DEV_PACKAGE_PREDEPENDS "mx-cert-mgmtd-lib")
+set(CPACK_DEBIAN_DEV_DESCRIPTION "Moxa Cert Mgmt Library Development")
 
 set(CPACK_DEBIAN_PACKAGE_DEBUG ON)
-
-
-
 
 include(CPack)
 
