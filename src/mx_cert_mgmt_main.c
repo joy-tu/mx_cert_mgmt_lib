@@ -328,20 +328,14 @@ static int mk_dir(char *dir)
 int main(int argc, char *argv[])
 {
     int c = 0, ret, inter, i;
-    int buf_len, file_len;
     uint32_t ip;
     char active_ip[32] = {0};
     uint32_t my_ip[4];
-    char cmd[512];
     struct sockaddr_in addr_in;
-    FILE *fpw, *fpr;
-    int filelen;
-    char buf[BUF_SZ], *data;
     X509 *x;
-    char _buf[64], tmp[64], cert_b[4096];
+    char _buf[64], tmp[64];
     struct tm tm, rootca_date, endtitiy_date;
-    time_t t, t2;
-    double seconds;
+    time_t t;
 
     dbg_printf("%s-%d, version=%s\r\n", __func__, __LINE__,VERSION);
     
@@ -470,7 +464,7 @@ ck_valid:
     }
     while (1) {
         /* compare the date between now and rootca/end entity */
-        double ret;
+        int ret;
         t = time(NULL);
 
         tm = *localtime(&t);

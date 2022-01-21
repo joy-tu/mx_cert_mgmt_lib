@@ -70,14 +70,19 @@ static int check_cert_type(char *pem);
 char Gseed[16] = {33, 40, 12, 99, 22, 44, 23, 49, 
                             122, 112, 60, 21, 6, 57, 72, 103};
 
-static int do_fake_get_mac(char *mac)
+static int do_fake_get_mac(unsigned char *mac)
 {
 #if 1
     char mac_str[18];
     
     net_get_my_mac(0, mac_str, sizeof(mac_str));
     sscanf(mac_str, "%x:%x:%x:%x:%x:%x", 
-        &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
+        &mac[0], 
+        &mac[1], 
+        &mac[2], 
+        &mac[3], 
+        &mac[4], 
+        &mac[5]);
 #if 0
     mac[0] = 0x00;
     mac[1] = 0x90;
@@ -90,7 +95,7 @@ static int do_fake_get_mac(char *mac)
     return 1;
 }
 
-static int do_fate_get_seed(char *seed)
+static int do_fate_get_seed(unsigned char *seed)
 {
     FILE *fpr;
     char *data, tmp[16];
@@ -124,8 +129,10 @@ static int do_fate_get_seed(char *seed)
     return 1;
 }
 
-static int do_fake_get_serial_num(int *ser_no){
+static int do_fake_get_serial_num(unsigned char *ser_no){
     *ser_no = 1;
+    
+    return 0;
 }
 
 static int _ASN1_GENERALIZEDTIME_print(char *buf, ASN1_GENERALIZEDTIME *tm)
@@ -189,12 +196,10 @@ static int _ASN1_TIME_print(char *buf, ASN1_TIME *tm)
 static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert_ram)
 {
     char *data;
-    FILE *fpr, *fpe, *fpd;
+    FILE *fpr;
     int filelen, i;
-    AES_KEY wctx;
-    unsigned char enc_out[4096];
     unsigned char dec_out[4096];
-    AES_KEY enc_key, dec_key;
+    AES_KEY dec_key;
 
     //AES_set_encrypt_key(sha256, 128, &enc_key);
     AES_set_decrypt_key(sha256,128,&dec_key);
@@ -213,7 +218,7 @@ static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert
     fclose(fpr);
 
     for (i = 0; i < filelen; i+=16) {
-        AES_decrypt(&data[i], &dec_out[i], &dec_key);
+        AES_decrypt((unsigned char*)&data[i], &dec_out[i], &dec_key);
     }
     memcpy(cert_ram, dec_out, filelen);
     free(data);
@@ -224,12 +229,10 @@ static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert
 static int do_decry_f(char *certpath, unsigned char *sha256)
 {
     char *data;
-    FILE *fpr, *fpe, *fpd;
+    FILE *fpr, *fpd;
     int filelen, i;
-    AES_KEY wctx;
-    unsigned char enc_out[4096];
     unsigned char dec_out[4096];
-    AES_KEY enc_key, dec_key;
+    AES_KEY dec_key;
 
     //AES_set_encrypt_key(sha256, 128, &enc_key);
     AES_set_decrypt_key(sha256,128,&dec_key);
@@ -255,7 +258,7 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
         return -1;
     }
     for (i = 0; i < filelen; i+=16) {
-        AES_decrypt(&data[i], &dec_out[i], &dec_key);
+        AES_decrypt((unsigned char*)&data[i], &dec_out[i], &dec_key);
         fwrite(&dec_out[i], 1, 16, fpd);
     }
     fclose(fpd);
@@ -267,11 +270,9 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
 static int do_encry(char *certpath, unsigned char *sha256)
 {
     char *data;
-    FILE *fpr, *fpe, *fpd;
+    FILE *fpr, *fpe;
     int filelen, i;
-    AES_KEY wctx;
     unsigned char enc_out[4096];
-    unsigned char dec_out[4096];
     AES_KEY enc_key, dec_key;
     
     fpr = fopen(certpath, "r");
@@ -296,7 +297,7 @@ static int do_encry(char *certpath, unsigned char *sha256)
     fpe = fopen(certpath, "w+");
 
     for (i = 0; i < filelen; i+=16) {
-        AES_encrypt(&data[i], &enc_out[i], &enc_key);
+        AES_encrypt((unsigned char*)&data[i], &enc_out[i], &enc_key);
         fwrite(&enc_out[i], 1, 16, fpe);
     }
     fclose(fpe);
@@ -311,15 +312,15 @@ static int do_sha256(unsigned char *sha256)
     int *seed_int;
     
     do_fake_get_mac(mac);
-    do_fake_get_serial_num((int *)&serial_num);
+    do_fake_get_serial_num(&serial_num);
     do_fate_get_seed(seed);
     
     seed[5] += mac[0];
     seed[6] += mac[1];
     seed[7] += mac[2];
     seed[8] += mac[3];
-    seed[9] += mac[5];
-    seed[10] += mac[6];
+    seed[9] += mac[4];
+    seed[10] += mac[5];
 
     seed_int = (int *)&seed[0];
     *seed_int += serial_num;
@@ -437,6 +438,8 @@ int test_func(int a)
                     2048);
     system(cmd);
     SSL_load_error_strings();
+
+    return 0;
 }
 /**
  * @brief: Delete the SSL cert file.
@@ -553,7 +556,7 @@ int mx_regen_cert(void)
 
     net_get_my_ip_by_ifname("eth0", &ip);
     addr_in.sin_addr.s_addr = ip;
-    //strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+    strcpy(active_ip, inet_ntoa(addr_in.sin_addr));  
     
     mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
     mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
@@ -582,9 +585,7 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
                                                             char *key_path,
                                                             char *cert_path)
 {
-    struct sockaddr_in addr_in;
     FILE *fpw, *fpr;
-    char active_ip[32] = {0};
     char *buf;
     int file_len;
     /* open file for PEM format IP/private key/ certficate */
@@ -695,27 +696,29 @@ void mx_cert_sign_cert(char *csr_path, char *rootcert_path, char *rootkey_path,
 
 int mx_do_encry(char *certpath)
 {
-    int i;
     unsigned char sha256[SHA256LEN];
     
     do_sha256(sha256);
     
     do_encry(certpath, sha256);
+
+    return 0;
 }
 
 int mx_do_decry_b(char *certpath, unsigned char *cert_ram)
 {
-    int i;
     unsigned char sha256[SHA256LEN];
     
     do_sha256(sha256);
     
     do_decry_b(certpath, sha256, cert_ram);
+
+    return 0;
 }
 
 int mx_do_decry_f(char *certpath)
 {
-    int i, ret;
+    int ret;
     unsigned char sha256[32];
     
     do_sha256(sha256);    
@@ -752,4 +755,6 @@ int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char
     dbg_printf("end %s\r\n", end);
 
     X509_free(x);
+
+    return 0;
 }

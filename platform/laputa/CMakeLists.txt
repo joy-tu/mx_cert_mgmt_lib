@@ -160,7 +160,8 @@ set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "mx-cert-mgmtd-lib")
 set(CPACK_DEBIAN_DEV_DESCRIPTION "Moxa Cert Mgmt Library Development")
 
 set(CPACK_DEBIAN_PACKAGE_DEBUG ON)
-
+set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wformat=0 -Os")
+add_compile_options(-Wall -Werror)
 include(CPack)
 
 # test client

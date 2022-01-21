@@ -187,7 +187,7 @@ static int _rest_error(
 )
 {
     JSON_Value *json_value = NULL;
-    int error;
+    //int error;
     char *p = NULL;
 
     if (!(json_value = json_value_init_object()))
@@ -210,7 +210,7 @@ static int _rest_error(
         return -1;
     }
 
-    error = rest_write(p, strlen(p) + 1);
+    //error = rest_write(p, strlen(p) + 1);
 
     json_value_free(json_value);
     json_free_serialized_string(p);
@@ -515,10 +515,8 @@ CERT_POST_BAD_REQUEST:
 }
 REST_HTTP_STATUS _rest_post_self_cert_regen(const char *uri, char *input_data, int32_t input_data_size)
 {
-    uint32_t action_option;
-
     JSON_Value *input_val = NULL, *output_val = NULL;
-    JSON_Object *input_obj, *output_obj;
+    JSON_Object  *output_obj;
 
     char *jsonptr = NULL, *error_message = NULL;
 
