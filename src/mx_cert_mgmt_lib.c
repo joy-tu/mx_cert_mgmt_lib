@@ -491,7 +491,7 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
     int flag;
     char *certFile=NULL;
     char *keyFile=NULL;
-    const char*tmpFile = "/var/tmp.pem";
+    const char*tmpFile = SYSTEM_TMPFS_PATH"/tmp.pem";
 
     flag = D_SSL_CHECK_CERT | D_SSL_CHECK_KEY;
     remove(tmpFile);
