@@ -55,6 +55,6 @@ int mx_do_encry_ex(char *certpath, char *outpath, int flag);
 int mx_do_decry_b(char *certpath, unsigned char *cert_ram);
 
 int mx_do_decry_f(char *certpath);
-int mx_do_decry_f_ex(char *certpath, char outpath);
+int mx_do_decry_f_ex(char *certpath, char *outpath);
 
 #endif //__MX_CERT_MGMT_LIG_H__

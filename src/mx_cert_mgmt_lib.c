@@ -237,8 +237,8 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
 
     //AES_set_encrypt_key(sha256, 128, &enc_key);
     AES_set_decrypt_key(sha256,128,&dec_key);
- 
-    fpr = fopen(certpath, "r");
+    
+    fpr = fopen(CERT_ENDENTITY_PEM_PATH, "r");
     if (fpr == NULL)
         return -1;
     fseek(fpr, 0L, SEEK_END);
@@ -828,7 +828,7 @@ int mx_do_decry_f(char *certpath)
     return ret;
 }
 
-int mx_do_decry_f_ex(char *certpath, char outpath)
+int mx_do_decry_f_ex(char *certpath, char *outpath)
 
 {
     int ret;
