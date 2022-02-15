@@ -227,7 +227,6 @@ static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert
     return 0;
 }
 
-
 static int do_decry_f(char *certpath, unsigned char *sha256)
 {
     char *data;
@@ -269,6 +268,50 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
     return 0;
 
 }
+
+static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
+{
+    char *data;
+    FILE *fpr, *fpd;
+    int filelen, i;
+    unsigned char dec_out[4096];
+    AES_KEY dec_key;
+
+    //AES_set_encrypt_key(sha256, 128, &enc_key);
+    AES_set_decrypt_key(sha256,128,&dec_key);
+ 
+    fpr = fopen(certpath, "r");
+    if (fpr == NULL)
+        return -1;
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);	
+    data = (char*)calloc(filelen, sizeof(char));	
+    if (data == NULL)
+    {
+        fclose(fpr);
+        return -1;
+    }
+    fread(data, sizeof(char), filelen, fpr);
+    fclose(fpr);
+    fpd = fopen(outpath, "w+");
+    if (fpd == NULL)
+    {
+        free(data);
+        return -1;
+    }
+    for (i = 0; i < filelen; i+=16) {
+        AES_decrypt((unsigned char*)&data[i], &dec_out[i], &dec_key);
+        fwrite(&dec_out[i], 1, 16, fpd);
+    }
+    fclose(fpd);
+    free(data);
+
+    return 0;
+
+}
+
+
 static int do_encry(char *certpath, unsigned char *sha256)
 {
     char *data;
@@ -306,6 +349,46 @@ static int do_encry(char *certpath, unsigned char *sha256)
     free(data);
     return 0;
 }
+
+static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int flag)
+{
+    char *data;
+    FILE *fpr, *fpe;
+    int filelen, i;
+    unsigned char enc_out[4096];
+    AES_KEY enc_key, dec_key;
+    
+    fpr = fopen(certpath, "r");
+    if (fpr == NULL)
+        return -1;
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);	
+    data = (char*)calloc(filelen, sizeof(char));	
+    if (data == NULL)
+    {
+        fclose(fpr);
+        return -1;
+    }
+    fread(data, sizeof(char), filelen, fpr);
+    fclose(fpr);
+    if (flag)
+        unlink(certpath);
+    filelen = filelen;
+    AES_set_encrypt_key(sha256, 128, &enc_key);
+    AES_set_decrypt_key(sha256,128,&dec_key);
+
+    fpe = fopen(outpath, "w+");
+
+    for (i = 0; i < filelen; i+=16) {
+        AES_encrypt((unsigned char*)&data[i], &enc_out[i], &enc_key);
+        fwrite(&enc_out[i], 1, 16, fpe);
+    }
+    fclose(fpe);
+    free(data);
+    return 0;
+}
+
 
 static int do_sha256(unsigned char *sha256)
 {
@@ -706,6 +789,22 @@ int mx_do_encry(char *certpath)
 
     return 0;
 }
+/*
+    @input : certpath : File to be decrypted.
+    @input : flag       : 1: delete file that has been decrypted
+    @output: outpath : File has been decrypted.
+*/
+int mx_do_encry_ex(char *certpath, char *outpath, int flag)
+{
+    unsigned char sha256[SHA256LEN];
+    
+    do_sha256(sha256);
+    
+    do_encry_ex(certpath, sha256, outpath, flag);
+
+    return 0;
+}
+
 
 int mx_do_decry_b(char *certpath, unsigned char *cert_ram)
 {
@@ -726,6 +825,18 @@ int mx_do_decry_f(char *certpath)
     do_sha256(sha256);    
     
     ret = do_decry_f(certpath, sha256);
+    return ret;
+}
+
+int mx_do_decry_f_ex(char *certpath, char outpath)
+
+{
+    int ret;
+    unsigned char sha256[32];
+    
+    do_sha256(sha256);    
+    
+    ret = do_decry_f_ex(certpath, sha256, outpath);
     return ret;
 }
 

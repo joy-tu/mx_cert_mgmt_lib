@@ -50,6 +50,11 @@ int mx_cert_del(char *fname/*int cert_idx*/);
 int mx_regen_cert(void);
 int mx_tell_cert_type(char *fname);
 int mx_do_encry(char *certpath);
+int mx_do_encry_ex(char *certpath, char *outpath, int flag);
+
 int mx_do_decry_b(char *certpath, unsigned char *cert_ram);
+
 int mx_do_decry_f(char *certpath);
+int mx_do_decry_f_ex(char *certpath, char outpath);
+
 #endif //__MX_CERT_MGMT_LIG_H__
