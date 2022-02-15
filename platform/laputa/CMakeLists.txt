@@ -19,6 +19,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(SOURCE_CODE_LIST
     ${PROJECT_ROOT}/src/mx_cert_mgmt_main.c
 
+    ${PROJECT_ROOT}/src/mx_cert_mgmt_rest.c
     #${PROJECT_ROOT}/src/mx_lldp_event.c
     ${PROJECT_ROOT}/src/mx_cert_mgmt_event.c
     #${PROJECT_ROOT}/src/mx_xxx.c
@@ -26,7 +27,7 @@ set(SOURCE_CODE_LIST
 
 set(LIB_SOURCE_CODE_LIST
     ${PROJECT_ROOT}/src/mx_cert_mgmt_lib.c
-    ${PROJECT_ROOT}/src/mx_cert_mgmt_rest.c
+    #${PROJECT_ROOT}/src/mx_cert_mgmt_rest.c
     #${PROJECT_ROOT}/src/mx_lldp_event.c
     ${PROJECT_ROOT}/src/mx_cert_mgmt_event.c
     #${PROJECT_ROOT}/src/mx_xxx_xxx.c
@@ -119,7 +120,8 @@ install(
 )
 
 install(
-    FILES ../../include/mx_cert_mgmt/mx_cert_mgmt_rest.h ../../src/mx_cert_mgmt_lib.h
+	#    FILES ../../include/mx_cert_mgmt/mx_cert_mgmt_rest.h ../../src/mx_cert_mgmt_lib.h
+    FILES ../../src/mx_cert_mgmt_lib.h
     DESTINATION /usr/include/mx_cert_mgmt/
     COMPONENT dev
 )

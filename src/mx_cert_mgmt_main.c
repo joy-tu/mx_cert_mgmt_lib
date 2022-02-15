@@ -38,6 +38,7 @@
 #include<mx_net/mx_net.h>
 #include "mx_cert_mgmt_lib.h"
 #include "mx_cert_mgmt_event.h"
+#include <../include/mx_cert_mgmt/mx_cert_mgmt_rest.h>
 /*****************************************************************************
  * Definition
  ****************************************************************************/
@@ -336,7 +337,8 @@ int main(int argc, char *argv[])
     char _buf[64], tmp[64];
     struct tm tm, rootca_date, endtitiy_date;
     time_t t;
-
+    int cert_mgmt_module_id;
+    
     dbg_printf("%s-%d, version=%s\r\n", __func__, __LINE__,VERSION);
     
     //system("apt-get install -y net-tools > /null");
@@ -377,6 +379,9 @@ int main(int argc, char *argv[])
     mk_dir(SYSTEM_WRITABLE_FILES_PATH);
     mk_dir(CERT_ENDENTITY_RW_DIR);
 
+    ret = cert_mgmt_rest_init("cert", &cert_mgmt_module_id);
+    if (ret < 0)
+        return EXIT_FAILURE;
     //mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE);
 #if 0 
     sprintf(cmd, "openssl genrsa -out %s %d", 
