@@ -109,8 +109,10 @@ static int do_fate_get_seed(unsigned char *seed)
     filelen = ftell(fpr);
     fseek(fpr, 0L, SEEK_SET);	
     data = (char*)calloc(filelen, sizeof(char));	
-    if (data == NULL)
+    if (data == NULL) {
+        fclose(fpr);
         return -1;
+    }
     fread(data, sizeof(char), filelen, fpr);
     fclose(fpr);
 

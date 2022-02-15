@@ -73,8 +73,10 @@ static int test_cert_import(char *file)
     filelen = ftell(fpr);
     fseek(fpr, 0L, SEEK_SET);	
     data = (char*)calloc(filelen, sizeof(char));	
-    if (data == NULL)
+    if (data == NULL) {
+	fclose(fpr);
         return 0;
+    }
     fread(data, sizeof(char), filelen, fpr);
     fclose(fpr);
 
