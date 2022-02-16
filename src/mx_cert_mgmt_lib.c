@@ -195,6 +195,18 @@ static int _ASN1_TIME_print(char *buf, ASN1_TIME *tm)
     return(0);
 }
 
+static int remove_padding(unsigned char *buf)
+{
+    int ret, i;
+
+    ret = 0;
+    
+    for (i = 0; i < 16; i++) {
+        if (buf[i] != '\0')
+            ret++;
+    }
+    return ret;
+}
 static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert_ram)
 {
     char *data;
@@ -273,7 +285,7 @@ static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
 {
     char *data;
     FILE *fpr, *fpd;
-    int filelen, i;
+    int filelen, i, len;
     unsigned char dec_out[4096];
     AES_KEY dec_key;
 
@@ -293,6 +305,7 @@ static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
         return -1;
     }
     fread(data, sizeof(char), filelen, fpr);
+
     fclose(fpr);
     fpd = fopen(outpath, "w+");
     if (fpd == NULL)
@@ -302,7 +315,8 @@ static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
     }
     for (i = 0; i < filelen; i+=16) {
         AES_decrypt((unsigned char*)&data[i], &dec_out[i], &dec_key);
-        fwrite(&dec_out[i], 1, 16, fpd);
+        len = remove_padding(&dec_out[i]);
+        fwrite(&dec_out[i], 1, len, fpd);
     }
     fclose(fpd);
     free(data);
@@ -354,9 +368,9 @@ static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int
 {
     char *data;
     FILE *fpr, *fpe;
-    int filelen, i;
+    int filelen, alloclen, i;
     unsigned char enc_out[4096];
-    AES_KEY enc_key, dec_key;
+    AES_KEY enc_key;
     
     fpr = fopen(certpath, "r");
     if (fpr == NULL)
@@ -364,19 +378,26 @@ static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int
     fseek(fpr, 0L, SEEK_END);
     filelen = ftell(fpr);
     fseek(fpr, 0L, SEEK_SET);	
-    data = (char*)calloc(filelen, sizeof(char));	
+
+    if (filelen % 16 == 0)
+        alloclen = filelen;
+    else {
+        alloclen = filelen + (16 - (filelen % 16));
+    }
+    data = (char*)calloc(alloclen, sizeof(char));	
     if (data == NULL)
     {
         fclose(fpr);
         return -1;
     }
+    memset(data, '\0', alloclen);
     fread(data, sizeof(char), filelen, fpr);
     fclose(fpr);
     if (flag)
         unlink(certpath);
     filelen = filelen;
+
     AES_set_encrypt_key(sha256, 128, &enc_key);
-    AES_set_decrypt_key(sha256,128,&dec_key);
 
     fpe = fopen(outpath, "w+");
 
