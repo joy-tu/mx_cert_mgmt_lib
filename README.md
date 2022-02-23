@@ -1,6 +1,6 @@
 How to build this library?
 
-cd mx-net/platform/laputa
+cd mx_cert_mgmt/platform/laputa
 
-cmake . && make pacakge
+cmake . && make package
 
