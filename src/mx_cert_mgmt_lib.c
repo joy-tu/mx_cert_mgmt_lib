@@ -50,6 +50,9 @@
 #define SSL_FILETYPE_ASN1	X509_FILETYPE_ASN1
 #define SSL_FILETYPE_PEM	X509_FILETYPE_PEM
 
+#define AES_CRYPT_BITS    128
+#define AES_CRYPT_BYTES   (AES_CRYPT_BITS / 8)
+
 #define SHA256LEN                  32
 #define SEEDLEN                       16
 #define MACLEN                          6
@@ -212,11 +215,10 @@ static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert
     char *data;
     FILE *fpr;
     int filelen, i;
-    unsigned char dec_out[4096];
+    unsigned char dec_out[AES_CRYPT_BYTES];
     AES_KEY dec_key;
 
-    //AES_set_encrypt_key(sha256, 128, &enc_key);
-    AES_set_decrypt_key(sha256,128,&dec_key);
+    AES_set_decrypt_key(sha256, AES_CRYPT_BITS, &dec_key);
  
     fpr = fopen(CERT_ENDENTITY_PEM_PATH, "r");
     fseek(fpr, 0L, SEEK_END);
@@ -231,10 +233,10 @@ static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert
     fread(data, sizeof(char), filelen, fpr);
     fclose(fpr);
 
-    for (i = 0; i < filelen; i+=16) {
-        AES_decrypt((unsigned char*)&data[i], &dec_out[i], &dec_key);
+    for (i = 0; i < filelen; i+=AES_CRYPT_BYTES) {
+        AES_decrypt((unsigned char*)&data[i], dec_out, &dec_key);
+        memcpy(&cert_ram[i], dec_out, AES_CRYPT_BYTES);
     }
-    memcpy(cert_ram, dec_out, filelen);
     free(data);
     return 0;
 }
@@ -244,11 +246,10 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
     char *data;
     FILE *fpr, *fpd;
     int filelen, i;
-    unsigned char dec_out[4096];
+    unsigned char dec_out[AES_CRYPT_BYTES];
     AES_KEY dec_key;
 
-    //AES_set_encrypt_key(sha256, 128, &enc_key);
-    AES_set_decrypt_key(sha256,128,&dec_key);
+    AES_set_decrypt_key(sha256, AES_CRYPT_BITS, &dec_key);
     
     fpr = fopen(CERT_ENDENTITY_PEM_PATH, "r");
     if (fpr == NULL)
@@ -270,9 +271,9 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
         free(data);
         return -1;
     }
-    for (i = 0; i < filelen; i+=16) {
-        AES_decrypt((unsigned char*)&data[i], &dec_out[i], &dec_key);
-        fwrite(&dec_out[i], 1, 16, fpd);
+    for (i = 0; i < filelen; i+=AES_CRYPT_BYTES) {
+        AES_decrypt((unsigned char*)&data[i], dec_out, &dec_key);
+        fwrite(dec_out, 1, AES_CRYPT_BYTES, fpd);
     }
     fclose(fpd);
     free(data);
@@ -286,11 +287,10 @@ static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
     char *data;
     FILE *fpr, *fpd;
     int filelen, i, len;
-    unsigned char dec_out[4096];
+    unsigned char dec_out[AES_CRYPT_BYTES];
     AES_KEY dec_key;
 
-    //AES_set_encrypt_key(sha256, 128, &enc_key);
-    AES_set_decrypt_key(sha256,128,&dec_key);
+    AES_set_decrypt_key(sha256, AES_CRYPT_BITS, &dec_key);
  
     fpr = fopen(certpath, "r");
     if (fpr == NULL)
@@ -313,10 +313,10 @@ static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
         free(data);
         return -1;
     }
-    for (i = 0; i < filelen; i+=16) {
-        AES_decrypt((unsigned char*)&data[i], &dec_out[i], &dec_key);
+    for (i = 0; i < filelen; i+=AES_CRYPT_BYTES) {
+        AES_decrypt((unsigned char*)&data[i], dec_out, &dec_key);
         len = remove_padding(&dec_out[i]);
-        fwrite(&dec_out[i], 1, len, fpd);
+        fwrite(dec_out, 1, len, fpd);
     }
     fclose(fpd);
     free(data);
@@ -331,8 +331,8 @@ static int do_encry(char *certpath, unsigned char *sha256)
     char *data;
     FILE *fpr, *fpe;
     int filelen, i;
-    unsigned char enc_out[4096];
-    AES_KEY enc_key, dec_key;
+    unsigned char enc_out[AES_CRYPT_BYTES];
+    AES_KEY enc_key;
     
     fpr = fopen(certpath, "r");
     if (fpr == NULL)
@@ -350,14 +350,13 @@ static int do_encry(char *certpath, unsigned char *sha256)
     fclose(fpr);
     unlink(certpath);
     filelen = filelen;
-    AES_set_encrypt_key(sha256, 128, &enc_key);
-    AES_set_decrypt_key(sha256,128,&dec_key);
+    AES_set_encrypt_key(sha256, AES_CRYPT_BITS, &enc_key);
 
     fpe = fopen(certpath, "w+");
 
-    for (i = 0; i < filelen; i+=16) {
-        AES_encrypt((unsigned char*)&data[i], &enc_out[i], &enc_key);
-        fwrite(&enc_out[i], 1, 16, fpe);
+    for (i = 0; i < filelen; i+=AES_CRYPT_BYTES) {
+        AES_encrypt((unsigned char*)&data[i], enc_out, &enc_key);
+        fwrite(enc_out, 1, AES_CRYPT_BYTES, fpe);
     }
     fclose(fpe);
     free(data);
@@ -369,7 +368,7 @@ static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int
     char *data;
     FILE *fpr, *fpe;
     int filelen, alloclen, i;
-    unsigned char enc_out[4096];
+    unsigned char enc_out[AES_CRYPT_BYTES];
     AES_KEY enc_key;
     
     fpr = fopen(certpath, "r");
@@ -379,10 +378,10 @@ static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int
     filelen = ftell(fpr);
     fseek(fpr, 0L, SEEK_SET);	
 
-    if (filelen % 16 == 0)
+    if (filelen % AES_CRYPT_BYTES == 0)
         alloclen = filelen;
     else {
-        alloclen = filelen + (16 - (filelen % 16));
+        alloclen = filelen + (AES_CRYPT_BYTES - (filelen % AES_CRYPT_BYTES));
     }
     data = (char*)calloc(alloclen, sizeof(char));	
     if (data == NULL)
@@ -397,13 +396,13 @@ static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int
         unlink(certpath);
     filelen = filelen;
 
-    AES_set_encrypt_key(sha256, 128, &enc_key);
+    AES_set_encrypt_key(sha256, AES_CRYPT_BITS, &enc_key);
 
     fpe = fopen(outpath, "w+");
 
-    for (i = 0; i < filelen; i+=16) {
-        AES_encrypt((unsigned char*)&data[i], &enc_out[i], &enc_key);
-        fwrite(&enc_out[i], 1, 16, fpe);
+    for (i = 0; i < filelen; i+=AES_CRYPT_BYTES) {
+        AES_encrypt((unsigned char*)&data[i], enc_out, &enc_key);
+        fwrite(enc_out, 1, AES_CRYPT_BYTES, fpe);
     }
     fclose(fpe);
     free(data);
