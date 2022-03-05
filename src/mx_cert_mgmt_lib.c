@@ -78,7 +78,11 @@ static int do_fake_get_mac(unsigned char *mac)
 #if 1
     char mac_str[18];
     
-    net_get_my_mac(0, mac_str, sizeof(mac_str));
+    if (net_get_my_mac(0, mac_str, sizeof(mac_str)) != MX_NET_OK)
+    {
+        memset(mac, 0, MACLEN);
+        return -1;
+    }
     sscanf(mac_str, "%x:%x:%x:%x:%x:%x", 
         &mac[0], 
         &mac[1], 
