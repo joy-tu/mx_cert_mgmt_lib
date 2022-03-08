@@ -208,7 +208,7 @@ static int remove_padding(unsigned char *buf)
 
     ret = 0;
     
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < AES_CRYPT_BYTES; i++) {
         if (buf[i] != '\0')
             ret++;
     }
@@ -319,7 +319,7 @@ static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
     }
     for (i = 0; i < filelen; i+=AES_CRYPT_BYTES) {
         AES_decrypt((unsigned char*)&data[i], dec_out, &dec_key);
-        len = remove_padding(&dec_out[i]);
+        len = remove_padding(dec_out);
         fwrite(dec_out, 1, len, fpd);
     }
     fclose(fpd);
