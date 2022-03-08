@@ -1,0 +1,8 @@
+#!/bin/bash
+#How to regen rootCA
+#ENV
+#Laputa Docker
+#Gen Key Command
+#openssl genrsa --out rootca.key 2048
+#Gen Cert Command
+openssl req -new -x509 -key rootca.key -days 3650 -sha256 -extensions v3_ca -out rootca.pem -subj /C=TW/ST=Taiwan/L="New Taipei"/O=Moxa/CN="Moxa Inc."/emailAddress=taiwan@moxa.com
