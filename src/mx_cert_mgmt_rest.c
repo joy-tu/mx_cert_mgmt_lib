@@ -222,8 +222,12 @@ static int _get_issueby(JSON_Value *root)
     int ret;
     char start[128], end[128], issueto[128], issueby[128];
     ret = mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
-    if (ret == -1)
-        return CERT_REST_GET_VAL_FAIL;
+    if (ret == -1) {/* opening cert fail */
+        if (_json_set(root, "data.issueby", "Not installed", JSONString) < 0) {
+            return CERT_REST_JSON_FAIL;
+        }
+        return CERT_REST_PEM_NOT_INSTALLED;
+    }
     //printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
 
     if (_json_set(root, "data.issueby", issueby, JSONString) < 0) {
@@ -244,8 +248,12 @@ static int _get_issueto(JSON_Value *root)
     int ret;
     char start[128], end[128], issueto[128], issueby[128];
     ret = mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
-    if (ret == -1)
-        return CERT_REST_GET_VAL_FAIL;
+    if (ret == -1) {/* opening cert fail */
+        if (_json_set(root, "data.issueto", "Not installed", JSONString) < 0) {
+            return CERT_REST_JSON_FAIL;
+        }    
+        return CERT_REST_PEM_NOT_INSTALLED;
+    }
     //printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
 
     if (_json_set(root, "data.issueto", issueto, JSONString) < 0) {
@@ -267,8 +275,12 @@ static int _get_startdate(JSON_Value *root)
     int ret;
     char start[128], end[128], issueto[128], issueby[128];
     ret = mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
-    if (ret == -1)
-        return CERT_REST_GET_VAL_FAIL;
+    if (ret == -1) { /* opening cert fail */
+        if (_json_set(root, "data.startdate", "Not installed", JSONString) < 0) {
+            return CERT_REST_JSON_FAIL;
+        }    
+        return CERT_REST_PEM_NOT_INSTALLED;
+    }
     //printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
     if (_json_set(root, "data.startdate", start, JSONString) < 0) {
         return CERT_REST_JSON_FAIL;
@@ -289,8 +301,12 @@ static int _get_enddate(JSON_Value *root)
     int ret;
     char start[128], end[128], issueto[128], issueby[128];
     ret = mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
-    if (ret == -1)
-        return CERT_REST_GET_VAL_FAIL;
+    if (ret == -1) {/* opening cert fail */
+        if (_json_set(root, "data.enddate", "Not installed", JSONString) < 0) {
+            return CERT_REST_JSON_FAIL;
+        }    
+        return CERT_REST_PEM_NOT_INSTALLED;
+    }
     //printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
     if (_json_set(root, "data.enddate", end, JSONString) < 0) {
         return CERT_REST_JSON_FAIL;
@@ -329,23 +345,35 @@ REST_HTTP_STATUS _rest_get_cert_info(
     /* get config */
     error = _get_startdate(output);
     if (error < 0) {
-        error = CERT_REST_FILE_NOT_EXIST;
-        goto BAD_REQ;    
+        if (error == CERT_REST_PEM_NOT_INSTALLED) {
+        } else {
+            error = CERT_REST_JSON_FAIL;
+            goto BAD_REQ;    
+        }
     }
     error = _get_enddate(output);
     if (error < 0) {
-        error = CERT_REST_FILE_NOT_EXIST;
-        goto BAD_REQ;    
+        if (error == CERT_REST_PEM_NOT_INSTALLED) {
+        } else {
+            error = CERT_REST_JSON_FAIL;
+            goto BAD_REQ;    
+        }
     }    
     error = _get_issueto(output);
     if (error < 0) {
-        error = CERT_REST_FILE_NOT_EXIST;
-        goto BAD_REQ;    
+        if (error == CERT_REST_PEM_NOT_INSTALLED) {
+        } else {
+            error = CERT_REST_JSON_FAIL;
+            goto BAD_REQ;    
+        }
     }    
     error = _get_issueby(output);
     if (error < 0) {
-        error = CERT_REST_FILE_NOT_EXIST;
-        goto BAD_REQ;    
+        if (error == CERT_REST_PEM_NOT_INSTALLED) {
+        } else {
+            error = CERT_REST_JSON_FAIL;
+            goto BAD_REQ;    
+        }    
     }    
     //error = _get_tz(output);
     if ((json_string = json_serialize_to_string(output)) == NULL) {
@@ -639,7 +667,7 @@ REST_HTTP_STATUS _rest_del_cert_pem(
         goto CERT_DELETE_REQUEST;
     }
     
-    if (mx_cert_del(CERT_ENDENTITY_PEM_PATH) == 1)
+    if (mx_cert_del(CERT_ENDENTITY_PEM_PATH) > 0)
         return REST_HTTP_STATUS_NO_CONTENT;
         
     error_message = malloc(strlen(RESPONSE_INVALID) + 1);

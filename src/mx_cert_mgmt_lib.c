@@ -468,7 +468,7 @@ static int check_cert_type(char *pem)
             return CERT_TYPE_SELFGEN;
     }
     else
-        return CERT_TYPE_SELFGEN;
+        return -1;
 }
 /**
  * @brief:  Check the validate of cerificate file.
@@ -562,11 +562,13 @@ int mx_cert_del(char *fname/*int cert_idx*/)
     ret = check_cert_type(fname);
     /* At 2021/11/9, we decice that we can delete all certificate. */
     if (ret == CERT_TYPE_IMPORT || ret == CERT_TYPE_SELFGEN) {
-        dbg_printf("Delete User's Import PEM\r\n");
+        printf("Delete User's Import PEM\r\n");
         unlink(fname);
         mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_DELETED);
+        
         return 1;
     } else {
+        printf("Delete User's Import PEM- file open fail\r\n");
         return -1;
     }
 }

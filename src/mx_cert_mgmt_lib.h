@@ -33,7 +33,8 @@ typedef enum
     CERT_REST_MALLOC_FAIL                = -7,
     CERT_REST_VAL_OUT_OF_RANGE           = -8,
     CERT_REST_JSON_FAIL                         = -9,
-    CERT_REST_FILE_NOT_EXIST                    = -10
+    CERT_REST_FILE_NOT_EXIST                    = -10,
+    CERT_REST_PEM_NOT_INSTALLED            = -11
 } CERT_REST_RET;
 /*****************************************************************************
  * Public functions
