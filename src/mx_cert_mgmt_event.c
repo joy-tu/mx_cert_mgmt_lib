@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <time.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <arpa/inet.h>
 
 #include <mx_event/mx_event_list.h>
 #include <mx_event/mx_event_agent.h>
-
+#include <mx_net/mx_net.h>
 #include "mx_cert_mgmt_event.h"
 #include <rest/rest_parser.h>
 int mx_cert_event_notify(int type)
@@ -48,15 +51,49 @@ int mx_cert_event_notify(int type)
         return -1;
     }
     /* notify an event */
-    if (rest_get_input_data_info(&user_info) != REST_OK) {
-        printf("rest_get_input_data_info failed\n");
+    if (type == MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE ||
+        type == MX_CERT_EVENT_NOTIFY_ROOTCA_EXPIRE ||
+        type == MX_CERT_EVENT_NOTIFY_ENDCERT_WILL_EXPIRE ||
+        type == MX_CERT_EVENT_NOTIFY_ENDCERT_EXPIRE) {
+        int inter, i;
+        uint32_t ip;
+        char active_ip[32] = {0};
+        struct sockaddr_in addr_in;
+        uint32_t my_ip[4];
+        inter = net_max_interfaces();
+        if (inter > 0) {
+            for (i = 0; i < inter; i++) {
+                net_get_my_ip(i, &my_ip[i]);
+            }
+            addr_in.sin_addr.s_addr = my_ip[0];
+            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+        } else { /* for docker */
+            if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
+                /* ok */
+            } else {
+                /* fail */
+            }
+            addr_in.sin_addr.s_addr = ip;
+            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+            printf("active_ip = %s\r\n", active_ip);
+        }
+        snprintf(source, sizeof(source),
+             "%16s %16s",
+             "Host", 
+             active_ip);  
+    } else {
+        if (rest_get_input_data_info(&user_info) != REST_OK) {
+            printf("rest_get_input_data_info failed\n");
 
-        return -1;
+            return -1;
+        }
+        snprintf(source, sizeof(source),
+             "%16s %16s",
+             user_info.user_name,
+             user_info.user_ip);    
     }
-    snprintf(source, sizeof(source),
-         "%s %s",
-         user_info.user_name,
-         user_info.user_ip);
+    
+
     event_content_notify notify_content =
     {
         .topic = topic,
