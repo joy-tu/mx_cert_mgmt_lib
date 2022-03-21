@@ -669,7 +669,8 @@ REST_HTTP_STATUS _rest_del_cert_pem(
     
     if (mx_cert_del(CERT_ENDENTITY_PEM_PATH) > 0)
         return REST_HTTP_STATUS_NO_CONTENT;
-        
+    /* 2022/3/11, center decide that, we response ok at any situation */
+    return REST_HTTP_STATUS_NO_CONTENT;        
     error_message = malloc(strlen(RESPONSE_INVALID) + 1);
     sprintf(error_message, RESPONSE_INVALID);
 CERT_DELETE_REQUEST:
