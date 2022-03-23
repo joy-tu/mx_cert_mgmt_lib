@@ -57,3 +57,23 @@ upload-deb:
     S3_TARGET: s3://mxswdc2/modules/builds/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}/${CI_PIPELINE_ID}
   script:
     - aws s3 cp . ${S3_TARGET} --recursive --exclude "*" --include "*.deb"
+
+
+upload-apt-cache:
+  stage: upload
+  tags:
+    - laputa-repo-uploader
+  variables:
+    CACHE_PATH: /cache/stretch/idd-internal-release/
+  only:
+    refs:
+      - develop
+  script:
+    - mkdir -p ${CACHE_PATH}
+    - find . -name "*.deb" -exec cp {} ${CACHE_PATH} \;
+    - ls -lh ${CACHE_PATH}
+  needs:
+    - job: build-deb-armhf
+      artifacts: true
+    - job: build-deb-amd64
+      artifacts: true
