@@ -20,7 +20,7 @@
 
 #define CERT_TYPE_IMPORT 1
 #define CERT_TYPE_SELFGEN 2 
-
+#if 0
 typedef enum
 {
     CERT_REST_OK                                = 0,
@@ -36,6 +36,7 @@ typedef enum
     CERT_REST_FILE_NOT_EXIST                    = -10,
     CERT_REST_PEM_NOT_INSTALLED            = -11
 } CERT_REST_RET;
+#endif
 /*****************************************************************************
  * Public functions
  ****************************************************************************/

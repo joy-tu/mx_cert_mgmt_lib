@@ -56,19 +56,36 @@
 /*****************************************************************************
  * Private types/enumerations/variables
  ****************************************************************************/
+typedef enum
+{
+    CERT_REST_OK                                = 0,
+    CERT_REST_PARAM_FAIL                = -1,
+    CERT_REST_INIT_FAIL                  = -2,
+    CERT_REST_CB_REGISTER_FAIL           = -3,
+    CERT_REST_GET_VAL_FAIL               = -4,
+    CERT_REST_SET_VAL_FAIL               = -5,
+    CERT_REST_TYPE_CONVERT_FAIL          = -6,
+    CERT_REST_MALLOC_FAIL                = -7,
+    CERT_REST_VAL_OUT_OF_RANGE           = -8,
+    CERT_REST_JSON_FAIL                         = -9,
+    CERT_REST_FILE_NOT_EXIST                    = -10,
+    CERT_REST_PEM_NOT_INSTALLED            = -11
+} CERT_REST_RET;
+
 const char *rest_error_msg[] =
 {
-    "Success",
-    "Invalid parameters",
-    "Init error",
-    "CB_REGISTER error",
-    "get value is error",
-    "set value is  error",
-    "TYPE_CONVERT_FAIL",
-    "MALLOC_FAIL",
-    "VAL_OUT_OF_RANGE",
-    "Json fail",
-    "file is not exist"
+    "Success",                         //0
+    "Invalid parameters",          //-1
+    "Init error",                       //-2
+    "CB_REGISTER error",        //-3
+    "Get value is error",           //-4
+    "Set value is  error",          //-5
+    "TYPE_CONVERT_FAIL",     //-6
+    "MALLOC_FAIL",               //-7
+    "VAL_OUT_OF_RANGE",     //-8
+    "Json fail",                       //-9
+    "File is not exist",             //-10
+    "PEM is not installer"         //-11
 };
 
 static CERT_REST_RET create_output(JSON_Value **output_val, JSON_Object **output_obj)
@@ -187,7 +204,6 @@ static int _rest_error(
 )
 {
     JSON_Value *json_value = NULL;
-    //int error;
     char *p = NULL;
 
     if (!(json_value = json_value_init_object()))
@@ -199,7 +215,7 @@ static int _rest_error(
     {
         return -1;
     }
-#if 0
+#if 1
     if (_json_set(json_value, "error.code", (void *)&error_id, JSONNumber) < 0)
     {
         return -1;
@@ -210,7 +226,7 @@ static int _rest_error(
         return -1;
     }
 
-    //error = rest_write(p, strlen(p) + 1);
+    rest_write(p, strlen(p));
 
     json_value_free(json_value);
     json_free_serialized_string(p);
