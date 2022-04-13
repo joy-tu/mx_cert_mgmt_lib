@@ -56,9 +56,18 @@ static int test_cert_regen()
 static int test_cert_decry(char *file)
 {
     char cert_b[4096];
-    mx_do_decry_b(CERT_ENDENTITY_PEM_PATH, cert_b);
+    int ret;
+    
+#ifdef OPTEE_DECRY_ENCRY
+    ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
+                                        CERT_ENDENTITY_TMP_PATH);    
 
+
+    system("cat CERT_ENDENTITY_TMP_PATH");
+#else
+    mx_do_decry_b(CERT_ENDENTITY_PEM_PATH, cert_b);
     printf("%s\r\n", cert_b);
+#endif
     return 0;
 }
 

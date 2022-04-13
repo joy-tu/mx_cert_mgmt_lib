@@ -35,6 +35,7 @@
 #include<mx_net/mx_net.h>
 #include "mx_cert_mgmt_lib.h"
 #include "mx_cert_mgmt_event.h"
+#include <mx_platform.h>
  /*****************************************************************************
  * Definition
  ****************************************************************************/
@@ -446,16 +447,33 @@ static int do_sha256(unsigned char *sha256)
  * @param 
  *
  * @return type of certificate
+ *                  1 if impotred
+ *                  2 if self-gen
  */
 static int check_cert_type(char *pem)
 {
     FILE *fp;
     char import_flag[128];
     int ret;
-    
+#ifdef OPTEE_DECRY_ENCRY    
+    fp = fopen(pem, "r");
+    if (fp != NULL) {
+        fclose(fp);
+        ret = crypto_decryption(pem, 
+                                        CERT_ENDENTITY_TMP_PATH);
+        if (ret != 0) {
+            printf("[Err] crypto_decryption %d\r\n", ret);
+            return -1;
+        }
+    } else {
+        return 0;
+    }                                        
+#else                                        
     ret = mx_do_decry_f(pem);
     if (ret < 0)
-        return ret;    
+        return ret;     
+#endif         
+   
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
 
     if (fp != NULL) {
@@ -590,7 +608,7 @@ int mx_tell_cert_type(char *fname)
  * @param errStr: 
  * @param errlen:
  
- * @return
+ * @return 0 if success
  */
 
 /* checkAndSetCertFile */
@@ -602,7 +620,7 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
     int flag;
     char *certFile=NULL;
     char *keyFile=NULL;
-    const char*tmpFile = SYSTEM_TMPFS_PATH"/tmp.pem";
+    char*tmpFile = SYSTEM_TMPFS_PATH"/tmp.pem";
 
     flag = D_SSL_CHECK_CERT | D_SSL_CHECK_KEY;
     remove(tmpFile);
@@ -630,10 +648,18 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
         ret -= 10;
         goto error;
     }
+#ifdef OPTEE_DECRY_ENCRY
+    ret = crypto_encryption(tmpFile, fname);
+    if (ret != 0) {
+        printf("[Err] crypto_decryption %d\r\n", ret);
+        return -1;
+    }
+#else
     // save
     sprintf(cmd, "mv %s %s", tmpFile, fname);
     system(cmd);
     mx_do_encry(fname);
+#endif
     mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_IMPORTED);
 
     // sys_send_events(EVENT_ID_SSLIMPORT, 0); 
@@ -690,7 +716,11 @@ int mx_regen_cert(void)
         
     return 1;
 }
-
+/*
+* @brief: combine key and cert
+* @return: 0 if success
+*               -1 if fail
+*/
 int mx_cert_combine_ip_key_cert(char *pem_path,
                                                             char *ip,
                                                             char *key_path,
@@ -699,10 +729,11 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     FILE *fpw, *fpr;
     char *buf;
     int file_len;
+    int ret;
     /* open file for PEM format IP/private key/ certficate */
-    fpw = fopen(pem_path, "w+");
+    fpw = fopen(CERT_ENDENTITY_TMP_PATH, "w+");
     if (fpw == NULL)
-        return 0;
+        return -1;
     /* append active ip */
     fwrite(ip, strlen(ip), 1, fpw);
     fwrite("\n", 1, 1, fpw);
@@ -712,7 +743,7 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     if (fpr == NULL)
     {
         fclose(fpw);
-        return 0;
+        return -1;
     }
     fseek(fpr, 0L, SEEK_END);
     file_len = ftell(fpr);
@@ -722,7 +753,7 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     {
         fclose(fpr);
         fclose(fpw);
-        return 0;
+        return -1;
     }
     fread(buf, sizeof(char), file_len, fpr);
     fclose(fpr);
@@ -734,7 +765,7 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     if (fpr == NULL)
     {
         fclose(fpw);
-        return 0;
+        return -1;
     }
     fseek(fpr, 0L, SEEK_END);
     file_len = ftell(fpr);
@@ -744,7 +775,7 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     {
         fclose(fpr);
         fclose(fpw);
-        return 0;
+        return -1;
     }
     fread(buf, sizeof(char), file_len, fpr);
     fclose(fpr);
@@ -754,8 +785,16 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     /* remove individual key & cert */
     unlink(key_path);
     unlink(cert_path);
+#ifdef OPTEE_DECRY_ENCRY
+    ret = crypto_encryption(CERT_ENDENTITY_TMP_PATH, pem_path);
+    if (ret != 0) {
+        printf("[Err] crypto_decryption %d\r\n", ret);
+        return -1;
+    }
+#else        
     mx_do_encry(pem_path);
-    return 1;
+#endif    
+    return 0;
 }
 
 void mx_cert_gen_priv_key(char *path, int len)
@@ -865,15 +904,36 @@ int mx_do_decry_f_ex(char *certpath, char *outpath)
     ret = do_decry_f_ex(certpath, sha256, outpath);
     return ret;
 }
-
+/*
+    @brief: get information of certificate
+    @return: 0 if success
+                 -1 if fail
+*/
 int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char *issueby)
 {
     X509 *x;
     int ret;
+
+#ifdef OPTEE_DECRY_ENCRY   
+    FILE *fp;
     
-    ret = mx_do_decry_f(certpath);
+    fp = fopen(certpath, "r");
+    if (fp != NULL) {
+        fclose(fp);
+        ret = crypto_decryption(certpath, 
+                                        CERT_ENDENTITY_TMP_PATH);
+        if (ret != 0) {
+            printf("[Err] crypto_decryption %d\r\n", ret);
+            return -1;
+        }
+    } else {
+        return -1;
+    }                                        
+#else                                        
+    ret= mx_do_decry_f(certpath);
     if (ret < 0)
-        return ret;
+        return ret;     
+#endif     
     x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
     unlink(CERT_ENDENTITY_TMP_PATH);
     /* Issued to */

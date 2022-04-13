@@ -5,6 +5,7 @@
 /*****************************************************************************
  * Definition
  ****************************************************************************/
+#define OPTEE_DECRY_ENCRY 1
 #define CERT_SEED_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/seed" 
 #define CERT_ROOTCA_KEY_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/rootca.key"
 #define CERT_ROOTCA_CERT_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/rootca.pem"

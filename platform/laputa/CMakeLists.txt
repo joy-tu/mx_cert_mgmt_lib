@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(mx-cert-mgmtd VERSION 0.0.2 LANGUAGES C)
+project(mx-cert-mgmtd VERSION 0.9.9 LANGUAGES C)
 
 set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 
@@ -61,6 +61,7 @@ set(LINK_LIB_LIST
     "ssl"
     "crypto"
     "mx-net"
+    "mx-platform"
 )
 
 set(LINK_MXLIB_LIST
@@ -70,6 +71,7 @@ set(LINK_MXLIB_LIST
     "crypto"
     "mx-net"
     "rest"
+    "mx-platform"
 )
 
 add_compile_definitions(
@@ -113,11 +115,11 @@ install(
     COMPONENT lib
 )
 
-install(
-    FILES ../../seed/seed
-    DESTINATION /cert
-    COMPONENT lib
-)
+#install(
+#    FILES ../../seed/seed
+#    DESTINATION /cert
+#    COMPONENT lib
+#)
 
 install(
 	#    FILES ../../include/mx_cert_mgmt/mx_cert_mgmt_rest.h ../../src/mx_cert_mgmt_lib.h

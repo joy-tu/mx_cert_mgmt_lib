@@ -39,6 +39,7 @@
 #include "mx_cert_mgmt_lib.h"
 #include "mx_cert_mgmt_event.h"
 #include <../include/mx_cert_mgmt/mx_cert_mgmt_rest.h>
+#include <mx_platform.h>
 /*****************************************************************************
  * Definition
  ****************************************************************************/
@@ -103,7 +104,13 @@ static void _printf_help(void)
            );
 
 }
+/* 
+    @brief : Check the validation of certificate
+    @return: 1 if  valid.
+                 0 if invalid.
+                 -1 if crypto_decryption fail
 
+*/
 static int check_certificate(int active_if)
 {
     FILE *fp;
@@ -113,15 +120,28 @@ static int check_certificate(int active_if)
     struct sockaddr_in addr_in;
     char ipstr[128], active_ip[32];
     int ret;
-
+#ifdef OPTEE_DECRY_ENCRY
+    fp = fopen(CERT_ENDENTITY_PEM_PATH, "r");
+    if (fp != NULL) {
+        fclose(fp);
+        ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
+                                        CERT_ENDENTITY_TMP_PATH);
+        if (ret != 0) {
+            printf("[Err] crypto_decryption %d\r\n", ret);
+            return -1;
+        }
+    } else {
+        return 0;
+    }
+#else
     ret = mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
     if (ret < 0)
         return 0;
-
+#endif
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
 
     if (fp != NULL) {
-        printf("\nFound pem file, now check ip address...\n");
+        dbg_printf("\nFound pem file, now check ip address...\n");
         fgets(ipstr, sizeof(ipstr), fp);
         fclose(fp);
         unlink(CERT_ENDENTITY_TMP_PATH);
@@ -149,20 +169,39 @@ static int check_certificate(int active_if)
     else
         return 0;
 }
-
+/* 
+    @brief : Check the imported flag of certificate
+    @return: 1 if  imported.
+                 0 if  Non imported.
+                 -1 if crypto_decryption fail
+*/
 static int check_import(int active_if)
 {
     FILE *fp;
     char import_flag[128];
     int ret;
-    
+#ifdef OPTEE_DECRY_ENCRY    
+    fp = fopen(CERT_ENDENTITY_PEM_PATH, "r");
+    if (fp != NULL) {
+        fclose(fp);
+        ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
+                                        CERT_ENDENTITY_TMP_PATH);
+        if (ret != 0) {
+            printf("[Err] crypto_decryption %d\r\n", ret);
+            return -1;
+        }
+    } else {
+        return 0;
+    }                                        
+#else                                        
     ret= mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
     if (ret < 0)
-        return ret;        
+        return ret;     
+#endif        
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
 
     if (fp != NULL) {
-        printf("\nFound cert file, now check import...\n");
+        dbg_printf("\nFound cert file, now check import...\n");
         fgets(import_flag, sizeof(import_flag), fp);
         fclose(fp);
         unlink(CERT_ENDENTITY_TMP_PATH);
@@ -311,9 +350,9 @@ static int mk_dir(char *dir)
       if (ret != 0) {  
           return -1;  
       }  
-      printf("%s created sucess!/n", dir);  
+        //printf("%s created sucess!/n", dir);  
     } else {  
-        printf("%s exist!/n", dir);  
+        //printf("%s exist!/n", dir);  
     }  
   
     return 0;  
@@ -364,7 +403,7 @@ int main(int argc, char *argv[])
         }
         addr_in.sin_addr.s_addr = my_ip[0];
         strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
-        printf("active_ip = %s\r\n", active_ip);        
+        dbg_printf("active_ip = %s\r\n", active_ip);        
     } else { /* for docker */
         if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
             dbg_printf("Ok****net_get_my_ip_by_ifname - %x****\r\n", ip);
@@ -373,7 +412,7 @@ int main(int argc, char *argv[])
         }
         addr_in.sin_addr.s_addr = ip;
         strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
-        printf("active_ip = %s\r\n", active_ip);
+        dbg_printf("active_ip = %s\r\n", active_ip);
     }
     mk_dir(CERT_ENDENTITY_RUN_DIR);
     mk_dir(SYSTEM_WRITABLE_FILES_PATH);
@@ -399,15 +438,15 @@ int main(int argc, char *argv[])
 #endif
     ret = mx_tell_cert_type(CERT_ENDENTITY_PEM_PATH);
     if (ret == CERT_TYPE_IMPORT) {
-        printf("Certificate is Imported\r\n");
+        dbg_printf("Certificate is Imported\r\n");
     } else {
-        printf("Certificate is Self-Gened\r\n");
+        dbg_printf("Certificate is Self-Gened\r\n");
     }
     if (check_import(1) == 1) {   // Found import.
         goto ck_valid;
     }
     ret = check_certificate(1);
-    if (ret) { /* Certificate already exists in db */
+    if (ret == 1) { /* Certificate already exists in db */
         goto ck_valid;
     } else {
         /* Generate Key & CSR & sign cert & combine */
@@ -421,18 +460,29 @@ int main(int argc, char *argv[])
             CERT_ENDENTITY_VALID_DAY,
             CERT_ENDENTITY_CERT_PATH,
             active_ip);
+
         ret = mx_cert_combine_ip_key_cert(CERT_ENDENTITY_PEM_PATH,
                 active_ip,
                 CERT_ENDENTITY_KEY_PATH,
                 CERT_ENDENTITY_CERT_PATH); 
-        if (!ret)
+        if (ret < 0)
             return -1;
     }
 ck_valid:
     /* Get rootca && end entity expiration date */
+#ifdef OPTEE_DECRY_ENCRY
+    ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
+                                        CERT_ENDENTITY_TMP_PATH); 
+    if (ret != 0) {
+        printf("[Err] crypto_decryption %d\r\n", ret);   
+        return ret;
+    }        
+#else
     ret = mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
+    
     if (ret < 0)
-        return ret;      
+        return ret;       
+#endif
     x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
     unlink(CERT_ENDENTITY_TMP_PATH);
     if (x == NULL)
@@ -478,18 +528,18 @@ ck_valid:
         dbg_printf(tmp);
         ret = cert_ck_expire(&tm, &rootca_date);
         if (ret > 0) {
-            printf("todo send for rootca will expired (%d)\r\n", ret);
+            dbg_printf("todo send for rootca will expired (%d)\r\n", ret);
             mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE);
         } else if (ret < 0) {
-            printf("todo send for rootca expired (%d)\r\n", ret);      
+            dbg_printf("todo send for rootca expired (%d)\r\n", ret);      
             mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_EXPIRE);
         }
         ret = cert_ck_expire(&tm, &endtitiy_date);
         if (ret > 0) {
-            printf("todo send for end-cert will expired (%d)\r\n", ret);
+            dbg_printf("todo send for end-cert will expired (%d)\r\n", ret);
             mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_WILL_EXPIRE);
         } else if (ret < 0) {
-            printf("todo send for end-cert expired (%d)\r\n", ret); 
+            dbg_printf("todo send for end-cert expired (%d)\r\n", ret); 
             mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_EXPIRE);
         }
         dbg_printf("now: %d-%02d-%02d %02d:%02d:%02d, checking expiration date...\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
