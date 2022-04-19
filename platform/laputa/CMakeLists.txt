@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(mx-cert-mgmtd VERSION 0.9.9 LANGUAGES C)
+project(mx-cert-mgmtd VERSION 0.9.91 LANGUAGES C)
 
 set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 
