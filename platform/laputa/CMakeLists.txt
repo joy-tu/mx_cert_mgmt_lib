@@ -104,14 +104,14 @@ install(
 
 install(
     FILES ../../rootca/rootca.key
-    DESTINATION /cert
+    DESTINATION /etc/default/cert
     COMPONENT lib
 )
 
 
 install(
     FILES ../../rootca/rootca.pem
-    DESTINATION /cert
+    DESTINATION /etc/default/cert
     COMPONENT lib
 )
 

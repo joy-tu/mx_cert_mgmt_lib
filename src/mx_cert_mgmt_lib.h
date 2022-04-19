@@ -7,8 +7,8 @@
  ****************************************************************************/
 #define OPTEE_DECRY_ENCRY 1
 #define CERT_SEED_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/seed" 
-#define CERT_ROOTCA_KEY_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/rootca.key"
-#define CERT_ROOTCA_CERT_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/rootca.pem"
+#define CERT_ROOTCA_KEY_PATH SYSTEM_DEFAULT_FILES_PATH"/cert/rootca.key"
+#define CERT_ROOTCA_CERT_PATH SYSTEM_DEFAULT_FILES_PATH"/cert/rootca.pem"
 #define CERT_ENDENTITY_VALID_DAY 365 * 5
 #define CERT_ENDENTITY_KEY_LENGTH 2048
 #define CERT_ENDENTITY_RUN_DIR SYSTEM_TMPFS_PATH"/cert"
