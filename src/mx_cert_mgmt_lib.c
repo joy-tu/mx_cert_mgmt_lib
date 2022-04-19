@@ -43,7 +43,7 @@
 #ifdef DEBUG_MX_CERT_MGMT
 #define dbg_printf  printf
 #else
-#define dbg_printf(...) 
+#define dbg_printf(...)
 #endif
 #define SSL_CERT_IMPORT_FLAG "import"
 #define D_SSL_CHECK_CERT    0x00000001L
@@ -71,25 +71,25 @@ static int check_cert_type(char *pem);
 /*****************************************************************************
  * Private functions
  ****************************************************************************/
-char Gseed[16] = {33, 40, 12, 99, 22, 44, 23, 49, 
+char Gseed[16] = {33, 40, 12, 99, 22, 44, 23, 49,
                             122, 112, 60, 21, 6, 57, 72, 103};
 
 static int do_fake_get_mac(unsigned char *mac)
 {
 #if 1
     char mac_str[18];
-    
+
     if (net_get_my_mac(0, mac_str, sizeof(mac_str)) != MX_NET_OK)
     {
         memset(mac, 0, MACLEN);
         return -1;
     }
-    sscanf(mac_str, "%x:%x:%x:%x:%x:%x", 
-        &mac[0], 
-        &mac[1], 
-        &mac[2], 
-        &mac[3], 
-        &mac[4], 
+    sscanf(mac_str, "%x:%x:%x:%x:%x:%x",
+        &mac[0],
+        &mac[1],
+        &mac[2],
+        &mac[3],
+        &mac[4],
         &mac[5]);
 #if 0
     mac[0] = 0x00;
@@ -115,8 +115,8 @@ static int do_fate_get_seed(unsigned char *seed)
         return -1;
     fseek(fpr, 0L, SEEK_END);
     filelen = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    data = (char*)calloc(filelen, sizeof(char));	
+    fseek(fpr, 0L, SEEK_SET);
+    data = (char*)calloc(filelen, sizeof(char));
     if (data == NULL) {
         fclose(fpr);
         return -1;
@@ -141,7 +141,7 @@ static int do_fate_get_seed(unsigned char *seed)
 
 static int do_fake_get_serial_num(unsigned char *ser_no){
     *ser_no = 1;
-    
+
     return 0;
 }
 
@@ -150,7 +150,7 @@ static int _ASN1_GENERALIZEDTIME_print(char *buf, ASN1_GENERALIZEDTIME *tm)
     char *v;
     int i;
     int y = 0, M = 0, d = 0;
-    
+
     i = tm->length;
     v = (char *)tm->data;
 
@@ -174,7 +174,7 @@ static int _ASN1_UTCTIME_print(char *buf, ASN1_UTCTIME *tm)
     char *v;
     int i;
     int y = 0, M = 0, d = 0;
-    
+
     i = tm->length;
     v = (char *)tm->data;
 
@@ -208,7 +208,7 @@ static int remove_padding(unsigned char *buf)
     int ret, i;
 
     ret = 0;
-    
+
     for (i = 0; i < AES_CRYPT_BYTES; i++) {
         if (buf[i] != '\0')
             ret++;
@@ -224,12 +224,12 @@ static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert
     AES_KEY dec_key;
 
     AES_set_decrypt_key(sha256, AES_CRYPT_BITS, &dec_key);
- 
+
     fpr = fopen(CERT_ENDENTITY_PEM_PATH, "r");
     fseek(fpr, 0L, SEEK_END);
     filelen = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    data = (char*)calloc(filelen, sizeof(char));	
+    fseek(fpr, 0L, SEEK_SET);
+    data = (char*)calloc(filelen, sizeof(char));
     if (data == NULL)
     {
         fclose(fpr);
@@ -255,14 +255,14 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
     AES_KEY dec_key;
 
     AES_set_decrypt_key(sha256, AES_CRYPT_BITS, &dec_key);
-    
+
     fpr = fopen(CERT_ENDENTITY_PEM_PATH, "r");
     if (fpr == NULL)
         return -1;
     fseek(fpr, 0L, SEEK_END);
     filelen = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    data = (char*)calloc(filelen, sizeof(char));	
+    fseek(fpr, 0L, SEEK_SET);
+    data = (char*)calloc(filelen, sizeof(char));
     if (data == NULL)
     {
         fclose(fpr);
@@ -296,14 +296,14 @@ static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
     AES_KEY dec_key;
 
     AES_set_decrypt_key(sha256, AES_CRYPT_BITS, &dec_key);
- 
+
     fpr = fopen(certpath, "r");
     if (fpr == NULL)
         return -1;
     fseek(fpr, 0L, SEEK_END);
     filelen = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    data = (char*)calloc(filelen, sizeof(char));	
+    fseek(fpr, 0L, SEEK_SET);
+    data = (char*)calloc(filelen, sizeof(char));
     if (data == NULL)
     {
         fclose(fpr);
@@ -338,14 +338,14 @@ static int do_encry(char *certpath, unsigned char *sha256)
     int filelen, i;
     unsigned char enc_out[AES_CRYPT_BYTES];
     AES_KEY enc_key;
-    
+
     fpr = fopen(certpath, "r");
     if (fpr == NULL)
         return -1;
     fseek(fpr, 0L, SEEK_END);
     filelen = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    data = (char*)calloc(filelen, sizeof(char));	
+    fseek(fpr, 0L, SEEK_SET);
+    data = (char*)calloc(filelen, sizeof(char));
     if (data == NULL)
     {
         fclose(fpr);
@@ -361,7 +361,7 @@ static int do_encry(char *certpath, unsigned char *sha256)
 
     for (i = 0; i < filelen; i+=AES_CRYPT_BYTES) {
         AES_encrypt((unsigned char*)&data[i], enc_out, &enc_key);
-        fwrite(enc_out, 1, AES_CRYPT_BYTES, fpe);
+        fwrite(enc_out, 1, AES_CRYPT_BYTES, fpe);
     }
     fclose(fpe);
     free(data);
@@ -375,20 +375,20 @@ static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int
     int filelen, alloclen, i;
     unsigned char enc_out[AES_CRYPT_BYTES];
     AES_KEY enc_key;
-    
+
     fpr = fopen(certpath, "r");
     if (fpr == NULL)
         return -1;
     fseek(fpr, 0L, SEEK_END);
     filelen = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
+    fseek(fpr, 0L, SEEK_SET);
 
     if (filelen % AES_CRYPT_BYTES == 0)
         alloclen = filelen;
     else {
         alloclen = filelen + (AES_CRYPT_BYTES - (filelen % AES_CRYPT_BYTES));
     }
-    data = (char*)calloc(alloclen, sizeof(char));	
+    data = (char*)calloc(alloclen, sizeof(char));
     if (data == NULL)
     {
         fclose(fpr);
@@ -407,7 +407,7 @@ static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int
 
     for (i = 0; i < filelen; i+=AES_CRYPT_BYTES) {
         AES_encrypt((unsigned char*)&data[i], enc_out, &enc_key);
-        fwrite(enc_out, 1, AES_CRYPT_BYTES, fpe);
+        fwrite(enc_out, 1, AES_CRYPT_BYTES, fpe);
     }
     fclose(fpe);
     free(data);
@@ -420,11 +420,11 @@ static int do_sha256(unsigned char *sha256)
     SHA256_CTX sha_ctx;
     unsigned char mac[MACLEN], serial_num, seed[SEEDLEN];
     int *seed_int;
-    
+
     do_fake_get_mac(mac);
     do_fake_get_serial_num(&serial_num);
     do_fate_get_seed(seed);
-    
+
     seed[5] += mac[0];
     seed[6] += mac[1];
     seed[7] += mac[2];
@@ -434,7 +434,7 @@ static int do_sha256(unsigned char *sha256)
 
     seed_int = (int *)&seed[0];
     *seed_int += serial_num;
-        
+
     SHA256_Init(&sha_ctx);
     SHA256_Update(&sha_ctx, seed, SEEDLEN);
     SHA256_Final(sha256, &sha_ctx);
@@ -444,22 +444,22 @@ static int do_sha256(unsigned char *sha256)
 /**
  * @brief:  Check the type of cerificate file.
  *
- * @param 
+ * @param
  *
  * @return type of certificate
  *                  1 if impotred
  *                  2 if self-gen
  */
 static int check_cert_type(char *pem)
-{
+{
     FILE *fp;
     char import_flag[128];
     int ret;
-#ifdef OPTEE_DECRY_ENCRY    
+#ifdef OPTEE_DECRY_ENCRY
     fp = fopen(pem, "r");
     if (fp != NULL) {
         fclose(fp);
-        ret = crypto_decryption(pem, 
+        ret = crypto_decryption(pem,
                                         CERT_ENDENTITY_TMP_PATH);
         if (ret != 0) {
             printf("[Err] crypto_decryption %d\r\n", ret);
@@ -467,13 +467,13 @@ static int check_cert_type(char *pem)
         }
     } else {
         return 0;
-    }                                        
-#else                                        
+    }
+#else
     ret = mx_do_decry_f(pem);
     if (ret < 0)
-        return ret;     
-#endif         
-   
+        return ret;
+#endif
+
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
 
     if (fp != NULL) {
@@ -491,7 +491,7 @@ static int check_cert_type(char *pem)
 /**
  * @brief:  Check the validate of cerificate file.
  *
- * @param 
+ * @param
  * @param
  * @param
  *
@@ -550,7 +550,7 @@ end:
 /**
  * @brief: Test function
  *
- * @param 
+ * @param
  * @param
  * @param
  *
@@ -560,7 +560,7 @@ end:
 int test_func(int a)
 {
     char cmd[512];
-    sprintf(cmd, "openssl genrsa -out %s %d", 
+    sprintf(cmd, "openssl genrsa -out %s %d",
                     "ass.cert",
                     2048);
     system(cmd);
@@ -574,7 +574,7 @@ int test_func(int a)
  * @return
  */
 int mx_cert_del(char *fname/*int cert_idx*/)
-{	
+{
     int ret;
 
     ret = check_cert_type(fname);
@@ -583,7 +583,7 @@ int mx_cert_del(char *fname/*int cert_idx*/)
         printf("Delete User's Import PEM\r\n");
         unlink(fname);
         mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_DELETED);
-        
+
         return 1;
     } else {
         printf("Delete User's Import PEM- file open fail\r\n");
@@ -605,9 +605,9 @@ int mx_tell_cert_type(char *fname)
  * @param fname: The location of certificate you wanna import.
  * @param data: The raw data of cert-file you wanna import.
  * @param len: The lenght of cert-file you wanna import.
- * @param errStr: 
+ * @param errStr:
  * @param errlen:
- 
+
  * @return 0 if success
  */
 
@@ -628,7 +628,7 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
     sprintf(cmd, "echo \"%s\" > %s", SSL_CERT_IMPORT_FLAG, tmpFile);
     system(cmd);
     fp = fopen(tmpFile, "a");
-    
+
     if (fp == NULL)
         return -2;
 
@@ -643,7 +643,7 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
     certFile = (char*)tmpFile;
     keyFile = (char*)tmpFile;
 
-    ret = checkCert(certFile, keyFile, flag, errStr, errlen);    
+    ret = checkCert(certFile, keyFile, flag, errStr, errlen);
     if (ret < 0) {
         ret -= 10;
         goto error;
@@ -662,7 +662,7 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
 #endif
     mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_IMPORTED);
 
-    // sys_send_events(EVENT_ID_SSLIMPORT, 0); 
+    // sys_send_events(EVENT_ID_SSLIMPORT, 0);
 error:
     if (fp)
         fclose(fp);
@@ -675,12 +675,12 @@ error:
  *
  * @param
 
- 
+
  * @return
  */
 int mx_regen_cert(void)
 {
-    int ret;       
+    int ret;
     uint32_t ip;
     char active_ip[32] = {0};
     struct sockaddr_in addr_in;
@@ -693,8 +693,8 @@ int mx_regen_cert(void)
 
     net_get_my_ip_by_ifname("eth0", &ip);
     addr_in.sin_addr.s_addr = ip;
-    strcpy(active_ip, inet_ntoa(addr_in.sin_addr));  
-    
+    strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+
     mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
     mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
     mx_cert_sign_cert(
@@ -707,13 +707,13 @@ int mx_regen_cert(void)
     ret = mx_cert_combine_ip_key_cert(CERT_ENDENTITY_PEM_PATH,
             active_ip,
             CERT_ENDENTITY_KEY_PATH,
-            CERT_ENDENTITY_CERT_PATH); 
+            CERT_ENDENTITY_CERT_PATH);
     unlink(CERT_ENDENTITY_KEY_PATH);
     unlink(CERT_ENDENTITY_CERT_PATH);
     if (!ret)
-        return -1;    
+        return -1;
     mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_REGEN);
-        
+
     return 1;
 }
 /*
@@ -747,8 +747,8 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     }
     fseek(fpr, 0L, SEEK_END);
     file_len = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    buf = (char*)calloc(file_len, sizeof(char));	
+    fseek(fpr, 0L, SEEK_SET);
+    buf = (char*)calloc(file_len, sizeof(char));
     if (buf == NULL)
     {
         fclose(fpr);
@@ -769,8 +769,8 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     }
     fseek(fpr, 0L, SEEK_END);
     file_len = ftell(fpr);
-    fseek(fpr, 0L, SEEK_SET);	
-    buf = (char*)calloc(file_len, sizeof(char));	
+    fseek(fpr, 0L, SEEK_SET);
+    buf = (char*)calloc(file_len, sizeof(char));
     if (buf == NULL)
     {
         fclose(fpr);
@@ -779,7 +779,7 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
     }
     fread(buf, sizeof(char), file_len, fpr);
     fclose(fpr);
-    fwrite(buf, file_len, 1, fpw);    
+    fwrite(buf, file_len, 1, fpw);
     fclose(fpw);
     free(buf);
     /* remove individual key & cert */
@@ -791,21 +791,21 @@ int mx_cert_combine_ip_key_cert(char *pem_path,
         printf("[Err] crypto_decryption %d\r\n", ret);
         return -1;
     }
-#else        
+#else
     mx_do_encry(pem_path);
-#endif    
+#endif
     return 0;
 }
 
 void mx_cert_gen_priv_key(char *path, int len)
 {
     char cmd[512];
-    
-    sprintf(cmd, "openssl genrsa -out %s %d", 
+
+    sprintf(cmd, "openssl genrsa -out %s %d",
                 path,
                 len);
-                
-    system(cmd);   
+
+    system(cmd);
 }
 
 void mx_cert_gen_csr(char *keypath, char *csrpath, char *ip)
@@ -831,25 +831,26 @@ void mx_cert_sign_cert(char *csr_path, char *rootcert_path, char *rootkey_path,
      * So we use 'bash -c' instead.
      */
     snprintf(cmd, sizeof(cmd), "bash -c \"openssl x509 -req -in %s -CA %s \
-                  -CAkey %s -CAserial ca.serial -CAcreateserial \
+                  -CAkey %s -CAserial %s -CAcreateserial \
                   -extensions SAN \
                   -extfile <(printf '[SAN]\\nsubjectAltName=IP:%s') \
                   -days %d -out %s\"",
                   csr_path,
                   rootcert_path,
                   rootkey_path,
+                  CA_SERIAL_TMP_PATH,
                   ip,
                   valid_day,
                   cert_path);
-    system(cmd);  
+    system(cmd);
 }
 
 int mx_do_encry(char *certpath)
 {
     unsigned char sha256[SHA256LEN];
-    
+
     do_sha256(sha256);
-    
+
     do_encry(certpath, sha256);
 
     return 0;
@@ -862,9 +863,9 @@ int mx_do_encry(char *certpath)
 int mx_do_encry_ex(char *certpath, char *outpath, int flag)
 {
     unsigned char sha256[SHA256LEN];
-    
+
     do_sha256(sha256);
-    
+
     do_encry_ex(certpath, sha256, outpath, flag);
 
     return 0;
@@ -874,9 +875,9 @@ int mx_do_encry_ex(char *certpath, char *outpath, int flag)
 int mx_do_decry_b(char *certpath, unsigned char *cert_ram)
 {
     unsigned char sha256[SHA256LEN];
-    
+
     do_sha256(sha256);
-    
+
     do_decry_b(certpath, sha256, cert_ram);
 
     return 0;
@@ -886,9 +887,9 @@ int mx_do_decry_f(char *certpath)
 {
     int ret;
     unsigned char sha256[32];
-    
-    do_sha256(sha256);    
-    
+
+    do_sha256(sha256);
+
     ret = do_decry_f(certpath, sha256);
     return ret;
 }
@@ -898,9 +899,9 @@ int mx_do_decry_f_ex(char *certpath, char *outpath)
 {
     int ret;
     unsigned char sha256[32];
-    
-    do_sha256(sha256);    
-    
+
+    do_sha256(sha256);
+
     ret = do_decry_f_ex(certpath, sha256, outpath);
     return ret;
 }
@@ -910,17 +911,17 @@ int mx_do_decry_f_ex(char *certpath, char *outpath)
                  -1 if fail
 */
 int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char *issueby)
-{
+{
     X509 *x;
     int ret;
 
-#ifdef OPTEE_DECRY_ENCRY   
+#ifdef OPTEE_DECRY_ENCRY
     FILE *fp;
-    
+
     fp = fopen(certpath, "r");
     if (fp != NULL) {
         fclose(fp);
-        ret = crypto_decryption(certpath, 
+        ret = crypto_decryption(certpath,
                                         CERT_ENDENTITY_TMP_PATH);
         if (ret != 0) {
             printf("[Err] crypto_decryption %d\r\n", ret);
@@ -928,12 +929,12 @@ int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char
         }
     } else {
         return -1;
-    }                                        
-#else                                        
+    }
+#else
     ret= mx_do_decry_f(certpath);
     if (ret < 0)
-        return ret;     
-#endif     
+        return ret;
+#endif
     x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
     unlink(CERT_ENDENTITY_TMP_PATH);
     /* Issued to */
@@ -950,7 +951,7 @@ int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char
     dbg_printf("start %s\r\n", start);
 
     /* Valid to */
-    ret = _ASN1_TIME_print(end, X509_get_notAfter(x)); 
+    ret = _ASN1_TIME_print(end, X509_get_notAfter(x));
     dbg_printf("end %s\r\n", end);
 
     X509_free(x);
