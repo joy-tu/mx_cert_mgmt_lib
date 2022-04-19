@@ -831,13 +831,14 @@ void mx_cert_sign_cert(char *csr_path, char *rootcert_path, char *rootkey_path,
      * So we use 'bash -c' instead.
      */
     snprintf(cmd, sizeof(cmd), "bash -c \"openssl x509 -req -in %s -CA %s \
-                  -CAkey %s -CAserial ca.serial -CAcreateserial \
+                  -CAkey %s -CAserial %s -CAcreateserial \
                   -extensions SAN \
                   -extfile <(printf '[SAN]\\nsubjectAltName=IP:%s') \
                   -days %d -out %s\"",
                   csr_path,
                   rootcert_path,
                   rootkey_path,
+                  CA_SERIAL_TMP_PATH,
                   ip,
                   valid_day,
                   cert_path);
