@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(mx-cert-mgmtd VERSION 0.0.0 LANGUAGES C)
+project(mx-cert-mgmtd VERSION 0.9.9 LANGUAGES C)
 
 set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 
@@ -146,7 +146,7 @@ set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS_POLICY ">=")
 
 
 # version
-#set(CPACK_DEBIAN_PACKAGE_RELEASE "0.9.9-1")
+set(CPACK_DEBIAN_PACKAGE_RELEASE "0.9.9-1")
 
 # lib
 set(CPACK_DEBIAN_LIB_PACKAGE_NAME "mx-cert-mgmtd-lib")
