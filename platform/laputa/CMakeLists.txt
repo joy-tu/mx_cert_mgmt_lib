@@ -13,7 +13,13 @@ include_directories(
     #    ${PROJECT_ROOT}/../include/ # remove after release
 )
 
-set(CMAKE_BUILD_TYPE "Release")
+# strip when release
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -s")
+
+# debug
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -g")
+
+#set(CMAKE_BUILD_TYPE "Release")
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_ROOT}/build)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(SOURCE_CODE_LIST
