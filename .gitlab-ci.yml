@@ -27,7 +27,7 @@ astyle:
 
 .build-deb:
   stage: build
-  image: registry.gitlab.com/moxa/ibg/software/platform/laputa/docker-laputa:${ARCH}-v2.1.2
+  image: registry.gitlab.com/moxa/ibg/software/platform/laputa/docker-laputa:${ARCH}-latest
   variables:
     IMG_TAG: build-laputa
   script:
