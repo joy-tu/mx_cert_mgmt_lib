@@ -19,6 +19,7 @@
 #include <sys/ioctl.h>/* FIONREAD */
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <signal.h>
 #include <def/mx_def.h>
 #ifdef __ZEPHYR__
 #else   /* Linux */
@@ -62,6 +63,7 @@ static int check_certificate(int active_if);
 static int check_import(int active_if);
 static int cert_get_valid_date(char *_buf, struct tm *tm);                                                            
 static const char *optstring = "vh";
+static int cert_mgmt_terminate = 0;
 
 static struct option opts[] =
 {
@@ -87,6 +89,16 @@ static struct option opts[] =
 /*****************************************************************************
  * Private functions
  ****************************************************************************/
+/*
+ * Signal handler for SIGINT or SIGQUIT. When program receives SIGINT/SIGQUIT,
+ * it will terminate itself.
+ */
+static void sigquit_handler(int sig)
+{
+    cert_mgmt_terminate = 1;
+    printf("Received signal(%d)\n", sig);
+}
+
 static void _printf_version(void)
 {
     fprintf(stdout, "Moxa Certificate Mgmt Daemon Version %s\n", VERSION);
@@ -379,6 +391,13 @@ int main(int argc, char *argv[])
     int cert_mgmt_module_id;
     
     dbg_printf("%s-%d, version=%s\r\n", __func__, __LINE__,VERSION);
+
+    /*
+     * Terminate the program when user tries to end it by pressing Ctrl+C.
+     */
+    signal(SIGINT, sigquit_handler);     /* Ctrl+C: interrupt program, num=2 */
+    signal(SIGQUIT, sigquit_handler);    /* quit program, num=3 */
+    signal(SIGTERM, sigquit_handler);    /* kill: terminate program, num=15 */
     
     //system("apt-get install -y net-tools > /null");
     while ((c = getopt_long(argc, argv, optstring, opts, NULL)) != -1) {
@@ -517,7 +536,7 @@ ck_valid:
         mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
         dbg_printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
     }
-    while (1) {
+    while (!cert_mgmt_terminate) {
         /* compare the date between now and rootca/end entity */
         int ret;
         t = time(NULL);
