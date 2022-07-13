@@ -3,7 +3,7 @@
 cd $(dirname $0)
 mkdir -p ../log/valgrind_log
 
-make all -C ..
+make debug -C ..
 valgrind --leak-check=yes --error-exitcode=1 --keep-debuginfo=yes --log-file=../log/valgrind_log/valgrind_mx-cert-mgmtd.log ../platform/laputa/bin/mx-cert-mgmtd &
 
 valgrind_pid=$!

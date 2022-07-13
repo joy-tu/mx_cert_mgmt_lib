@@ -13,7 +13,9 @@ include_directories(
     #    ${PROJECT_ROOT}/../include/ # remove after release
 )
 
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+set(CMAKE_C_FLAGS_RELEASE "-Os -s")
+
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_ROOT}/build)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(SOURCE_CODE_LIST
@@ -164,7 +166,7 @@ set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "mx-cert-mgmtd-lib")
 set(CPACK_DEBIAN_DEV_DESCRIPTION "Moxa Cert Mgmt Library Development")
 
 set(CPACK_DEBIAN_PACKAGE_DEBUG ON)
-set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wformat=0 -Os")
+set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wformat=0")
 add_compile_options(-Wall -Werror)
 include(CPack)
 
