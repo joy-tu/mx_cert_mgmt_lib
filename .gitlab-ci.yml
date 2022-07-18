@@ -2,7 +2,7 @@ stages:
   - analysis
   - build
   - upload
-
+  - scan
 
 cppcheck:
   stage: analysis
@@ -27,7 +27,7 @@ astyle:
 
 .build-deb:
   stage: build
-  image: registry.gitlab.com/moxa/ibg/software/platform/laputa/docker-laputa:${ARCH}-v2.1.2
+  image: registry.gitlab.com/moxa/ibg/software/platform/laputa/docker-laputa:${ARCH}-latest
   variables:
     IMG_TAG: build-laputa
   script:
@@ -77,3 +77,14 @@ upload-apt-cache:
       artifacts: true
     - job: build-deb-amd64
       artifacts: true
+
+include:
+    - project: 'moxa/ibg/software/devops/share/team-ci-templates/ci-templates-edge-platform'
+      ref: main
+      file: 'edge-platform.gitlab-ci.yml'
+
+variables:
+  COVERITY_COMPILER_TYPE_AMD64: cc
+  COVERITY_NATIVE_BUILD_COMMAND: ./platform/laputa/scripts/build.sh
+  VALGRIND_ACTIVATE_MEMCHECK: "true"
+  VALGRIND_ACTIVATE_MEMCHECK_UNIT_TEST: "false"

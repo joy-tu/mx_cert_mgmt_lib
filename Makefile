@@ -4,7 +4,11 @@ DOCS_DIR ?= docs
 
 .PHONY: all clean distclean tests docs
 all: ${BUILD_DIR}
-	cd $< && cmake ../platform/laputa
+	cd $< && cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=release ../platform/laputa
+	cd $< && make
+
+debug: ${BUILD_DIR}
+	cd $< && cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=debug ../platform/laputa
 	cd $< && make
 
 ${BUILD_DIR} ${DOCS_DIR}:
