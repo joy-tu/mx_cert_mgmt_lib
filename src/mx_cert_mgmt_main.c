@@ -33,6 +33,7 @@
 #include <openssl/evp.h>
 #include <openssl/ts.h>
 #endif
+#include <rest/rest_parser.h>
 #include<dirent.h>  
 #include<sys/types.h>  
 #include<sys/stat.h>  
@@ -96,6 +97,7 @@ static struct option opts[] =
 static void sigquit_handler(int sig)
 {
     cert_mgmt_terminate = 1;
+    rest_cleanup();
     printf("Received signal(%d)\n", sig);
 }
 
