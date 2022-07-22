@@ -368,7 +368,7 @@ static int mk_dir(char *dir)
     } else {  
         //printf("%s exist!/n", dir);  
     }  
-    closedir(dir); 
+    closedir(mydir); 
     return 0;  
 }  
 
