@@ -520,6 +520,7 @@ ck_valid:
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
     ret = cert_get_valid_date(_buf, &rootca_date);
+    memset(tmp, 0 , sizeof(tmp));
     strftime(tmp, sizeof(tmp), "rootca_date:%c\r\n", &rootca_date);
     X509_free(x);
     dbg_printf(tmp);
