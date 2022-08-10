@@ -384,7 +384,7 @@ int main(int argc, char *argv[])
     int c = 0, ret, inter, i;
     uint32_t ip;
     char active_ip[32] = {0};
-    uint32_t my_ip[4];
+    uint32_t my_ip[4] = {0};
     struct sockaddr_in addr_in;
     X509 *x;
     char _buf[64], tmp[64];
@@ -517,10 +517,13 @@ ck_valid:
          * in the following */
         return -1;
     }
+    memset(tmp, 0 , sizeof(tmp));
+    memset(_buf, 0 , sizeof(_buf));	
+    memset(&rootca_date, 0 , sizeof(rootca_date));	
+	
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
     ret = cert_get_valid_date(_buf, &rootca_date);
-    memset(tmp, 0 , sizeof(tmp));
     strftime(tmp, sizeof(tmp), "rootca_date:%c\r\n", &rootca_date);
     X509_free(x);
     dbg_printf(tmp);
