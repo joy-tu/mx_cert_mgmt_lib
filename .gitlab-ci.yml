@@ -4,6 +4,15 @@ stages:
   - upload
   - scan
 
+default:
+  image:
+    registry.gitlab.com/moxa/ibg/software/platform/laputa/docker-laputa:${ARCH}-latest
+  tags:
+    - autoscale
+    - ec2-spot
+    - debian
+
+
 cppcheck:
   stage: analysis
   image: 164073796161.dkr.ecr.ap-northeast-1.amazonaws.com/ci/protocol:${IMG_TAG}-v${IMG_VERSION}
@@ -13,6 +22,7 @@ cppcheck:
   script:
     - ./scripts/cppcheck.sh
   allow_failure: true
+  tags: []
 
 astyle:
   stage: analysis
@@ -23,7 +33,7 @@ astyle:
   script:
     - ./scripts/astyle.sh
   allow_failure: true
-
+  tags: []
 
 .build-deb:
   stage: build
@@ -57,9 +67,10 @@ upload-deb:
     S3_TARGET: s3://mxswdc2/modules/builds/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}/${CI_PIPELINE_ID}
   script:
     - aws s3 cp . ${S3_TARGET} --recursive --exclude "*" --include "*.deb"
-
+  tags: []
 
 upload-apt-cache:
+  image: debian:latest
   stage: upload
   tags:
     - laputa-repo-uploader
