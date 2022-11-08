@@ -905,6 +905,7 @@ int mx_do_decry_f_ex(char *certpath, char *outpath)
     ret = do_decry_f_ex(certpath, sha256, outpath);
     return ret;
 }
+
 /*
     @brief: get information of certificate
     @return: 0 if success
