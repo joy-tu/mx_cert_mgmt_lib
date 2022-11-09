@@ -66,7 +66,7 @@ int mx_cert_event_notify(int type)
                 net_get_my_ip(i, &my_ip[i]);
             }
             addr_in.sin_addr.s_addr = my_ip[0];
-            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+            strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         } else { /* for docker */
             if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
                 /* ok */
@@ -74,7 +74,7 @@ int mx_cert_event_notify(int type)
                 /* fail */
             }
             addr_in.sin_addr.s_addr = ip;
-            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+            strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
             printf("active_ip = %s\r\n", active_ip);
         }
         snprintf(source, sizeof(source),

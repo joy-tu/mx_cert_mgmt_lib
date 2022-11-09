@@ -32,6 +32,8 @@
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
 #include <openssl/ts.h>
+#include <openssl/sha.h>
+#include <openssl/aes.h>
 #endif
 #include <rest/rest_parser.h>
 #include<dirent.h>  
@@ -166,12 +168,12 @@ static int check_certificate(int active_if)
                 printf("my_ip - %x\r\n", my_ip[i]);
             }
             addr_in.sin_addr.s_addr = my_ip[0];
-            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+            strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
             printf("active_ip = %s\r\n", active_ip);        
         } else { /* for docker */
             net_get_my_ip_by_ifname("eth0", &ip);
             addr_in.sin_addr.s_addr = ip;
-            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+            strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         }        
 
         dbg_printf("ipstr=[%s], activeIP=[%s]\n", ipstr, active_ip);
@@ -372,6 +374,88 @@ static int mk_dir(char *dir)
     return 0;  
 }  
 
+#define MGMT_BITS    128
+#define MGMT_BYTES   (MGMT_BITS / 8)
+static int remove_padding(unsigned char *buf)
+{
+    int ret, i;
+
+    ret = 0;
+
+    for (i = 0; i < MGMT_BYTES; i++) {
+        if (buf[i] != '\0')
+            ret++;
+    }
+    return ret;
+}
+
+static int do_secure_ee_dev_f_ex(char *certpath, unsigned char *sha256, char *outpath)
+{
+    char *data;
+    FILE *fpr, *fpd;
+    int filelen, i, len;
+    unsigned char dec_out[MGMT_BYTES];
+    AES_KEY dec_key;
+
+    AES_set_decrypt_key(sha256, MGMT_BITS, &dec_key);
+
+    fpr = fopen(certpath, "r");
+    if (fpr == NULL)
+        return -1;
+    fseek(fpr, 0L, SEEK_END);
+    filelen = ftell(fpr);
+    fseek(fpr, 0L, SEEK_SET);
+    data = (char*)calloc(filelen, sizeof(char));
+    if (data == NULL)
+    {
+        fclose(fpr);
+        return -1;
+    }
+    fread(data, sizeof(char), filelen, fpr);
+
+    fclose(fpr);
+    fpd = fopen(outpath, "w+");
+    if (fpd == NULL)
+    {
+        free(data);
+        return -1;
+    }
+    for (i = 0; i < filelen; i+=MGMT_BYTES) {
+        AES_decrypt((unsigned char*)&data[i], dec_out, &dec_key);
+        len = remove_padding(dec_out);
+        fwrite(dec_out, 1, len, fpd);
+    }
+    fclose(fpd);
+    free(data);
+
+    return 0;
+
+}
+
+int mx_secure_enchance_embed_dev_d(char *certpath, char *outpath)
+
+{
+    int ret, i;
+    //unsigned char secure_enchance_embed_dev[32] = "12345678901234567890123456789012";
+    unsigned char secure[8] = "security";
+    unsigned char enchance[8] = "enchance";
+    unsigned char embed[8] = "embedded";	
+    unsigned char dev[8] = "device!!";	
+    unsigned char dees[33];
+    for (i = 0; i < 8; i++) {
+		dees[i] = dev[i];
+		dees[i + 8] = embed[i]; 
+		dees[i + 16] = enchance[i];
+		dees[i + 24] = secure[i];		
+    }
+    dees[32] = '\0';
+    //printf("dees = %s\r\n", dees);
+    //do_sha256(sha256);
+
+    ret = do_secure_ee_dev_f_ex(certpath, dees, outpath);
+    return ret;
+}
+
 /*****************************************************************************
  * Public functions
  ****************************************************************************/
@@ -387,7 +471,7 @@ int main(int argc, char *argv[])
     uint32_t my_ip[4] = {0};
     struct sockaddr_in addr_in;
     X509 *x;
-    char _buf[64], tmp[64];
+    char _buf[64], tmp[64], cmd[64];
     struct tm tm, rootca_date, endtitiy_date;
     time_t t;
     int cert_mgmt_module_id;
@@ -423,7 +507,7 @@ int main(int argc, char *argv[])
             printf("my_ip - %x\r\n", my_ip[i]);
         }
         addr_in.sin_addr.s_addr = my_ip[0];
-        strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+        strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         dbg_printf("active_ip = %s\r\n", active_ip);        
     } else { /* for docker */
         if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
@@ -432,7 +516,7 @@ int main(int argc, char *argv[])
             dbg_printf("Fail****net_get_my_ip_by_ifname ****\r\n");
         }
         addr_in.sin_addr.s_addr = ip;
-        strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+        strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         dbg_printf("active_ip = %s\r\n", active_ip);
     }
     mk_dir(CERT_ENDENTITY_RUN_DIR);
@@ -472,6 +556,8 @@ int main(int argc, char *argv[])
     } else {
         /* Generate Key & CSR & sign cert & combine */
         printf("Generating certificate................\r\n");
+        mx_secure_enchance_embed_dev_d(CERT_ROOTCA_KEY_SECURE
+			, CERT_ROOTCA_KEY_PATH);
         mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
         mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
         mx_cert_sign_cert(
@@ -486,6 +572,9 @@ int main(int argc, char *argv[])
                 active_ip,
                 CERT_ENDENTITY_KEY_PATH,
                 CERT_ENDENTITY_CERT_PATH); 
+	 sprintf(cmd, "rm %s", 
+	            CERT_ROOTCA_KEY_PATH);
+	 system(cmd);		
         if (ret < 0)
             return -1;
     }
@@ -504,8 +593,9 @@ ck_valid:
     if (ret < 0)
         return ret;       
 #endif
-    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
-    unlink(CERT_ENDENTITY_TMP_PATH);
+    x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
+//    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
+//    unlink(CERT_ENDENTITY_TMP_PATH);
     if (x == NULL)
     {
         printf("TS_CONF_load_cert(%s) failed!\n", CERT_ENDENTITY_TMP_PATH);
@@ -527,7 +617,9 @@ ck_valid:
     strftime(tmp, sizeof(tmp), "rootca_date:%c\r\n", &rootca_date);
     X509_free(x);
     dbg_printf(tmp);
-    x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
+//    x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
+    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
+    unlink(CERT_ENDENTITY_TMP_PATH);
     if (x == NULL)
         return -1;
     memset(tmp, 0 , sizeof(tmp));
@@ -542,7 +634,7 @@ ck_valid:
      //sleep(CERT_SLEEP_5MIN);
     {
         char start[128], end[128], issueto[128], issueby[128];
-        mx_get_cert_info(CERT_ENDENTITY_PEM_PATH, start, end, issueto, issueby);
+        mx_get_cert_info(CERT_ENDENTITY_TMP_PATH, start, end, issueto, issueby);
         dbg_printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
     }
     while (!cert_mgmt_terminate) {

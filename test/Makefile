@@ -29,6 +29,7 @@ all: ${TARGETS}
 clean:
 	rm -f *.gcov *.gcno *.gcda
 	rm -f ${TARGETS}
+	rm -f secure_ee_dev
 
 test_mx_timed_event: test_mx_timed_event.c ${SRC_DIR}/mx_timed_event.c
 	gcc -o $@ ${CFLAGS} -Wl,--wrap=calloc $< ${LDFLAGS}
@@ -59,6 +60,7 @@ test_mx_timed_config: test_mx_timed_config.c ${SRC_DIR}/mx_timed_config.c
 		$< ${LDFLAGS}
 	./$@
 
-test_mx_cert_lib: test_mx_cert_lib.c 
+test_mx_cert_lib: test_mx_cert_lib.c ../src/mx_cert_mgmt_lib.c
 	gcc -o $@ ${CFLAGS} $< -lssl -l crypto -lmx-net -lrest-cert -L../platform/laputa/build -L/usr/lib
 	./$@
+	cp test_mx_cert_lib rootca_encry_waes

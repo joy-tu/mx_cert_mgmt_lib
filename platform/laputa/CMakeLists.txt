@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(mx-cert-mgmtd VERSION 1.0.0 LANGUAGES C)
+project(mx-cert-mgmtd VERSION 1.0.1 LANGUAGES C)
 
 set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 
@@ -105,15 +105,17 @@ install(
 )
 
 install(
-    FILES ../../rootca/rootca.key
-    DESTINATION /etc/default/cert
+	#    FILES ../../rootca/rootca.key
+    FILES ../../rootca/secure_ee_dev
+    DESTINATION /etc/default/cm
     COMPONENT lib
 )
 
 
 install(
-    FILES ../../rootca/rootca.pem
-    DESTINATION /etc/default/cert
+	#    FILES ../../rootca/rootca.pem
+    FILES ../../rootca/secure_ee_dev_all
+    DESTINATION /etc/default/cm
     COMPONENT lib
 )
 
@@ -148,7 +150,7 @@ set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS_POLICY ">=")
 
 
 # version
-set(CPACK_DEBIAN_PACKAGE_RELEASE 7)
+set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
 
 # lib
 set(CPACK_DEBIAN_LIB_PACKAGE_NAME "mx-cert-mgmtd-lib")

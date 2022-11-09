@@ -693,7 +693,7 @@ int mx_regen_cert(void)
 
     net_get_my_ip_by_ifname("eth0", &ip);
     addr_in.sin_addr.s_addr = ip;
-    strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+    strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
 
     mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
     mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
@@ -905,6 +905,7 @@ int mx_do_decry_f_ex(char *certpath, char *outpath)
     ret = do_decry_f_ex(certpath, sha256, outpath);
     return ret;
 }
+
 /*
     @brief: get information of certificate
     @return: 0 if success

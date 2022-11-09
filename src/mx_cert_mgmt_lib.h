@@ -7,8 +7,11 @@
  ****************************************************************************/
 #define OPTEE_DECRY_ENCRY 1
 #define CERT_SEED_PATH SYSTEM_READ_ONLY_FILES_PATH"cert/seed" 
-#define CERT_ROOTCA_KEY_PATH SYSTEM_DEFAULT_FILES_PATH"/cert/rootca.key"
-#define CERT_ROOTCA_CERT_PATH SYSTEM_DEFAULT_FILES_PATH"/cert/rootca.pem"
+//#define CERT_ROOTCA_KEY_PATH SYSTEM_DEFAULT_FILES_PATH"/cm/rootca.key"
+#define CERT_ROOTCA_KEY_PATH SYSTEM_TEMP_FILES_PATH"/ee_dev"
+//#define CERT_ROOTCA_CERT_PATH SYSTEM_DEFAULT_FILES_PATH"/cm/rootca.pem"
+#define CERT_ROOTCA_CERT_PATH SYSTEM_DEFAULT_FILES_PATH"/cm/secure_ee_dev_all"
+#define CERT_ROOTCA_KEY_SECURE SYSTEM_DEFAULT_FILES_PATH"/cm/secure_ee_dev"
 #define CERT_ENDENTITY_VALID_DAY 365 * 5
 #define CERT_ENDENTITY_KEY_LENGTH 2048
 #define CERT_ENDENTITY_RUN_DIR SYSTEM_TMPFS_PATH"/cert"
@@ -60,5 +63,8 @@ int mx_do_decry_b(char *certpath, unsigned char *cert_ram);
 
 int mx_do_decry_f(char *certpath);
 int mx_do_decry_f_ex(char *certpath, char *outpath);
+
+int mx_secure_enchance_embed_dev_d(char *certpath, char *outpath);
+int mx_secure_enchance_embed_dev_e(char *certpath, char *outpath, int flag);
 
 #endif //__MX_CERT_MGMT_LIG_H__
