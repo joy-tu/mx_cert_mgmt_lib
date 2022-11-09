@@ -168,12 +168,12 @@ static int check_certificate(int active_if)
                 printf("my_ip - %x\r\n", my_ip[i]);
             }
             addr_in.sin_addr.s_addr = my_ip[0];
-            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+            strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
             printf("active_ip = %s\r\n", active_ip);        
         } else { /* for docker */
             net_get_my_ip_by_ifname("eth0", &ip);
             addr_in.sin_addr.s_addr = ip;
-            strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+            strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         }        
 
         dbg_printf("ipstr=[%s], activeIP=[%s]\n", ipstr, active_ip);
@@ -507,7 +507,7 @@ int main(int argc, char *argv[])
             printf("my_ip - %x\r\n", my_ip[i]);
         }
         addr_in.sin_addr.s_addr = my_ip[0];
-        strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+        strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         dbg_printf("active_ip = %s\r\n", active_ip);        
     } else { /* for docker */
         if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
@@ -516,7 +516,7 @@ int main(int argc, char *argv[])
             dbg_printf("Fail****net_get_my_ip_by_ifname ****\r\n");
         }
         addr_in.sin_addr.s_addr = ip;
-        strcpy(active_ip, inet_ntoa(addr_in.sin_addr));
+        strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         dbg_printf("active_ip = %s\r\n", active_ip);
     }
     mk_dir(CERT_ENDENTITY_RUN_DIR);
