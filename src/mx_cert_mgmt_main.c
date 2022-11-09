@@ -47,7 +47,7 @@
 /*****************************************************************************
  * Definition
  ****************************************************************************/
-#define DEBUG_MX_CERT_MGMT
+//#define DEBUG_MX_CERT_MGMT
 #ifdef DEBUG_MX_CERT_MGMT
 #define dbg_printf  printf
 #else
