@@ -13,6 +13,7 @@ include_directories(
     #    ${PROJECT_ROOT}/../include/ # remove after release
 )
 
+set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
 set(CMAKE_C_FLAGS_RELEASE "-Os -s")
 
@@ -150,7 +151,7 @@ set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS_POLICY ">=")
 
 
 # version
-set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
+set(CPACK_DEBIAN_PACKAGE_RELEASE 2)
 
 # lib
 set(CPACK_DEBIAN_LIB_PACKAGE_NAME "mx-cert-mgmtd-lib")

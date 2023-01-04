@@ -333,7 +333,6 @@ static int cert_ck_expire(struct tm *now, struct tm *cert)
         tmp = tmp * 365;
         days -= tmp;
     }
-    
     tmp = cert->tm_mon - now->tm_mon;
     if (tmp > 0)
         days += tmp * 30;
@@ -350,6 +349,7 @@ static int cert_ck_expire(struct tm *now, struct tm *cert)
         tmp = abs(tmp);
         days -= tmp;
     }        
+	
     dbg_printf("days=%d\r\n", days);
     if (days > 61)
         return 0; /* save */
@@ -643,6 +643,11 @@ ck_valid:
         t = time(NULL);
 
         tm = *localtime(&t);
+	 tm.tm_year = tm.tm_year + 1900;
+	 tm.tm_mon = tm.tm_mon + 1;
+	 rootca_date.tm_year = rootca_date.tm_year + 1900;
+	 endtitiy_date.tm_year = endtitiy_date.tm_year + 1900;
+	 
         //tm.tm_year += 20;
         strftime(tmp, sizeof(tmp), "now_date:%c\r\n", &tm);
         dbg_printf(tmp);
