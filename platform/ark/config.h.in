@@ -1,0 +1,32 @@
+#ifndef __CONFIG_H__
+#define __CONFIG_H__
+
+#define MX_CONFIG_MGMT_VERSION "@CMAKE_PROJECT_VERSION@"
+
+#define FILE_AUTH_SIZE          @DEFINE_VALUE_FILE_AUTH_SIZEM@
+
+#define USE_OPENSSL             @ENABLE_OPENSSL@
+
+#define USE_MBEDTLS             @ENABLE_MBEDTLS@
+
+#define _CFG_INTF_DEBUG_LOG_    @ENABLE_DEBUG_LOG@
+
+#define _CFG_INTF_ERROR_LOG_    @ENABLE_ERROR_LOG@
+
+#define USE_MX_REST             @LINK_MX_REST@
+
+#define USE_MX_EVENT_AGENT      @LINK_MX_EVENT@
+
+#define USE_MX_PLATFORM         @LINK_MX_PLATFORM@
+
+#define USE_MX_CFGAPI           @LINK_MX_CFGAPI@
+
+#define __ZEPHYR__              @OS_PLATFORM_ZEPHYR@
+
+#define __LINUX__               @OS_PLATFORM_LINUX@
+
+#define _CFG_CONFIG_VERSION_    @CFG_CONFIG_VERSION@
+
+#define _CFG_REST_VERSION_      @CFG_REST_VERSION@
+
+#endif // __CONFIG_H__

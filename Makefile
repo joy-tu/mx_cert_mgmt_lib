@@ -2,7 +2,7 @@ BUILD_DIR ?= build
 
 DOCS_DIR ?= docs
 
-.PHONY: all clean distclean tests docs
+.PHONY: all clean distclean tests docs ark
 all: ${BUILD_DIR}
 	cd $< && cmake -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_BUILD_TYPE=release ../platform/laputa
 	cd $< && make
@@ -26,3 +26,7 @@ tests:
 
 docs:
 	doxygen
+
+ark:
+	./platform/ark/scripts/build-ark.sh
+
