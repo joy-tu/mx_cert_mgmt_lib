@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <sysexits.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -19,7 +18,13 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <def/mx_def.h>
-#ifdef __ZEPHYR__
+//#include <../include/mx_cert_mgmt/conf.h>
+#include <mx_cert_mgmt/conf.h>
+#if __ZEPHYR__
+#include <mbedtls/sha256.h>
+#include <mbedtls/aes.h>
+#include <mbedtls/cipher.h>
+#include "mbedtls/md.h"
 #else   /* Linux */
 #include <linux/sockios.h>
 #include <openssl/crypto.h>

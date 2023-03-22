@@ -11,7 +11,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <sysexits.h>
+#include <../include/mx_cert_mgmt/conf.h>
+//#include <sysexits.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -21,7 +22,11 @@
 #include <netdb.h>
 #include <signal.h>
 #include <def/mx_def.h>
-#ifdef __ZEPHYR__
+#if __ZEPHYR__
+#include <mbedtls/sha256.h>
+#include <mbedtls/aes.h>
+#include <mbedtls/cipher.h>
+#include "mbedtls/md.h"
 #else   /* Linux */
 #include <linux/sockios.h>
 #include <openssl/crypto.h>
@@ -39,11 +44,12 @@
 #include<dirent.h>  
 #include<sys/types.h>  
 #include<sys/stat.h>  
-#include<mx_net/mx_net.h>
+//#include<mx_net/mx_net.h>
 #include "mx_cert_mgmt_lib.h"
 #include "mx_cert_mgmt_event.h"
 #include <../include/mx_cert_mgmt/mx_cert_mgmt_rest.h>
-#include <mx_platform.h>
+//#include "mx_cert_mgmt_rest.h"
+//#include <mx_platform.h>
 /*****************************************************************************
  * Definition
  ****************************************************************************/
@@ -105,7 +111,11 @@ static void sigquit_handler(int sig)
 
 static void _printf_version(void)
 {
+#if __ZEPHYR__
+    fprintf(stdout, "Moxa Certificate Mgmt Daemon \r\n");
+#else
     fprintf(stdout, "Moxa Certificate Mgmt Daemon Version %s\n", VERSION);
+#endif    
 }
 
 static void _printf_help(void)
@@ -161,6 +171,7 @@ static int check_certificate(int active_if)
         fgets(ipstr, sizeof(ipstr), fp);
         fclose(fp);
         unlink(CERT_ENDENTITY_TMP_PATH);
+#if USE_MX_NET        
         inter = net_max_interfaces();
         if (inter > 0) {
             for (i = 0; i < inter; i++) {
@@ -175,7 +186,7 @@ static int check_certificate(int active_if)
             addr_in.sin_addr.s_addr = ip;
             strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         }        
-
+#endif
         dbg_printf("ipstr=[%s], activeIP=[%s]\n", ipstr, active_ip);
         if (!strncmp(ipstr, active_ip, strlen(active_ip)))
             return 1; /* Active IP == PEM's IP */
@@ -230,7 +241,7 @@ static int check_import(int active_if)
     else
         return 0;
 }
-
+#if __LINUX__
 static int _ASN1_GENERALIZEDTIME_print(char *buf, ASN1_GENERALIZEDTIME *tm)
 {
     char *v;
@@ -288,7 +299,7 @@ static int _ASN1_TIME_print(char *buf, ASN1_TIME *tm)
     sprintf(buf, " ");  /* Bad time value */
     return(0);
 }
-
+#endif /* __LINUX__ */
 static int cert_get_valid_date(char *_buf, struct tm *tm) 
 {
     char * pch;
@@ -388,7 +399,7 @@ static int remove_padding(unsigned char *buf)
     }
     return ret;
 }
-
+#if __LINUX__
 static int do_secure_ee_dev_f_ex(char *certpath, unsigned char *sha256, char *outpath)
 {
     char *data;
@@ -455,7 +466,7 @@ int mx_secure_enchance_embed_dev_d(char *certpath, char *outpath)
     ret = do_secure_ee_dev_f_ex(certpath, dees, outpath);
     return ret;
 }
-
+#endif /* __LINUX__ */
 /*****************************************************************************
  * Public functions
  ****************************************************************************/
@@ -470,7 +481,9 @@ int main(int argc, char *argv[])
     char active_ip[32] = {0};
     uint32_t my_ip[4] = {0};
     struct sockaddr_in addr_in;
+#if __LINUX__
     X509 *x;
+#endif    
     char _buf[64], tmp[64], cmd[64];
     struct tm tm, rootca_date, endtitiy_date;
     time_t t;
@@ -481,11 +494,13 @@ int main(int argc, char *argv[])
     /*
      * Terminate the program when user tries to end it by pressing Ctrl+C.
      */
+#if __LINUX__
     signal(SIGINT, sigquit_handler);     /* Ctrl+C: interrupt program, num=2 */
     signal(SIGQUIT, sigquit_handler);    /* quit program, num=3 */
     signal(SIGTERM, sigquit_handler);    /* kill: terminate program, num=15 */
-    
+#endif    
     //system("apt-get install -y net-tools > /null");
+#if __LINUX__    
     while ((c = getopt_long(argc, argv, optstring, opts, NULL)) != -1) {
         switch (c) {
         case 'v':
@@ -500,6 +515,8 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
         }
     }
+#endif    
+#if USE_MX_NET        
     inter = net_max_interfaces();
     if (inter > 0) {
         for (i = 0; i < inter; i++) {
@@ -519,6 +536,7 @@ int main(int argc, char *argv[])
         strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         dbg_printf("active_ip = %s\r\n", active_ip);
     }
+#endif    
     mk_dir(CERT_ENDENTITY_RUN_DIR);
     mk_dir(SYSTEM_WRITABLE_FILES_PATH);
     mk_dir(CERT_ENDENTITY_RW_DIR);
@@ -556,8 +574,10 @@ int main(int argc, char *argv[])
     } else {
         /* Generate Key & CSR & sign cert & combine */
         printf("Generating certificate................\r\n");
+#if __LINUX__
         mx_secure_enchance_embed_dev_d(CERT_ROOTCA_KEY_SECURE
 			, CERT_ROOTCA_KEY_PATH);
+#endif
         mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
         mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
         mx_cert_sign_cert(
@@ -593,6 +613,7 @@ ck_valid:
     if (ret < 0)
         return ret;       
 #endif
+#if __LINUX__	
     x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
 //    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
 //    unlink(CERT_ENDENTITY_TMP_PATH);
@@ -607,29 +628,36 @@ ck_valid:
          * in the following */
         return -1;
     }
+#endif
     memset(tmp, 0 , sizeof(tmp));
     memset(_buf, 0 , sizeof(_buf));	
     memset(&rootca_date, 0 , sizeof(rootca_date));	
-	
+#if __LINUX__	
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
+
     ret = cert_get_valid_date(_buf, &rootca_date);
     strftime(tmp, sizeof(tmp), "rootca_date:%c\r\n", &rootca_date);
     X509_free(x);
+    
     dbg_printf(tmp);
 //    x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
     x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
     unlink(CERT_ENDENTITY_TMP_PATH);
     if (x == NULL)
         return -1;
+#endif
     memset(tmp, 0 , sizeof(tmp));
     memset(_buf, 0 , sizeof(_buf));	
     memset(&endtitiy_date, 0 , sizeof(endtitiy_date));		
+#if __LINUX__
     ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
     ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x));   
+
     ret = cert_get_valid_date(_buf, &endtitiy_date);
     strftime(tmp, sizeof(tmp), "endtitiy_date:%c\r\n", &endtitiy_date);
     X509_free(x);
+#endif
     dbg_printf(tmp);
      //sleep(CERT_SLEEP_5MIN);
     {
@@ -654,18 +682,26 @@ ck_valid:
         ret = cert_ck_expire(&tm, &rootca_date);
         if (ret > 0) {
             dbg_printf("todo send for rootca will expired (%d)\r\n", ret);
+#if USE_MX_EVENT_AGENT            
             mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE);
+#endif            
         } else if (ret < 0) {
             dbg_printf("todo send for rootca expired (%d)\r\n", ret);      
+#if USE_MX_EVENT_AGENT            
             mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_EXPIRE);
+#endif
         }
         ret = cert_ck_expire(&tm, &endtitiy_date);
         if (ret > 0) {
             dbg_printf("todo send for end-cert will expired (%d)\r\n", ret);
+#if USE_MX_EVENT_AGENT            
             mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_WILL_EXPIRE);
+#endif            
         } else if (ret < 0) {
             dbg_printf("todo send for end-cert expired (%d)\r\n", ret); 
+#if USE_MX_EVENT_AGENT            
             mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_EXPIRE);
+#endif            
         }
         dbg_printf("now: %d-%02d-%02d %02d:%02d:%02d, checking expiration date...\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 

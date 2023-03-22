@@ -5,12 +5,11 @@
  * @license This software is distributed under the terms of the MOXA License. See the file COPYING-MOXA for details.
  * @author Joy Tu
  * @date 2021-10-06
- */
+ */ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <sysexits.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -19,7 +18,13 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <def/mx_def.h>
-#ifdef __ZEPHYR__
+//#include <../include/mx_cert_mgmt/mx_cert_mgmt_rest.h>
+#include <mx_cert_mgmt/conf.h>
+#if __ZEPHYR__
+#include <mbedtls/sha256.h>
+#include <mbedtls/aes.h>
+#include <mbedtls/cipher.h>
+#include "mbedtls/md.h"
 #else   /* Linux */
 #include <linux/sockios.h>
 #include <openssl/crypto.h>
@@ -32,10 +37,10 @@
 #include <openssl/aes.h>
 #include <openssl/ts.h>
 #endif
-#include<mx_net/mx_net.h>
+//#include<mx_net/mx_net.h>
 #include "mx_cert_mgmt_lib.h"
 #include "mx_cert_mgmt_event.h"
-#include <mx_platform.h>
+//#include <mx_platform.h>
  /*****************************************************************************
  * Definition
  ****************************************************************************/
@@ -76,7 +81,7 @@ char Gseed[16] = {33, 40, 12, 99, 22, 44, 23, 49,
 
 static int do_fake_get_mac(unsigned char *mac)
 {
-#if 1
+#if USE_MX_NET
     char mac_str[18];
 
     if (net_get_my_mac(0, mac_str, sizeof(mac_str)) != MX_NET_OK)
@@ -144,7 +149,7 @@ static int do_fake_get_serial_num(unsigned char *ser_no){
 
     return 0;
 }
-
+#if __LINUX__
 static int _ASN1_GENERALIZEDTIME_print(char *buf, ASN1_GENERALIZEDTIME *tm)
 {
     char *v;
@@ -202,7 +207,7 @@ static int _ASN1_TIME_print(char *buf, ASN1_TIME *tm)
     sprintf(buf, " ");  /* Bad time value */
     return(0);
 }
-
+#endif /* __LINUX */
 static int remove_padding(unsigned char *buf)
 {
     int ret, i;
@@ -217,6 +222,7 @@ static int remove_padding(unsigned char *buf)
 }
 static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert_ram)
 {
+#if __LINUX__
     char *data;
     FILE *fpr;
     int filelen, i;
@@ -244,10 +250,12 @@ static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert
     }
     free(data);
     return 0;
+#endif /* __LINUX__ */    
 }
 
 static int do_decry_f(char *certpath, unsigned char *sha256)
 {
+#if __LINUX__
     char *data;
     FILE *fpr, *fpd;
     int filelen, i;
@@ -284,11 +292,12 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
     free(data);
 
     return 0;
-
+#endif /* __LINUX__ */
 }
 
 static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
 {
+#if __LINUX__
     char *data;
     FILE *fpr, *fpd;
     int filelen, i, len;
@@ -327,12 +336,13 @@ static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
     free(data);
 
     return 0;
-
+#endif
 }
 
 
 static int do_encry(char *certpath, unsigned char *sha256)
 {
+#if __LINUX__
     char *data;
     FILE *fpr, *fpe;
     int filelen, i;
@@ -366,10 +376,12 @@ static int do_encry(char *certpath, unsigned char *sha256)
     fclose(fpe);
     free(data);
     return 0;
+#endif /* __LINUX__ */    
 }
 
 static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int flag)
 {
+#if __LINUX__
     char *data;
     FILE *fpr, *fpe;
     int filelen, alloclen, i;
@@ -412,11 +424,13 @@ static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int
     fclose(fpe);
     free(data);
     return 0;
+#endif /* __LINUX__ */    
 }
 
 
 static int do_sha256(unsigned char *sha256)
 {
+#if __LINUX__
     SHA256_CTX sha_ctx;
     unsigned char mac[MACLEN], serial_num, seed[SEEDLEN];
     int *seed_int;
@@ -440,6 +454,7 @@ static int do_sha256(unsigned char *sha256)
     SHA256_Final(sha256, &sha_ctx);
 
     return 0;
+#endif /* __LINUX__ */    
 }
 /**
  * @brief:  Check the type of cerificate file.
@@ -499,6 +514,7 @@ static int check_cert_type(char *pem)
  */
 static int checkCert(char *cert_file, char* key_file, int flag, char* errorStr, int errlen)
 {
+#if __LINUX__
     SSL_CTX *ctx;
     int ret;
 
@@ -543,6 +559,7 @@ static int checkCert(char *cert_file, char* key_file, int flag, char* errorStr, 
 end:
     SSL_CTX_free(ctx);
     return ret;
+#endif /* __LINUX__ */    
 }
 /*****************************************************************************
  * Public functions
@@ -582,8 +599,9 @@ int mx_cert_del(char *fname/*int cert_idx*/)
     if (ret == CERT_TYPE_IMPORT || ret == CERT_TYPE_SELFGEN) {
         printf("Delete User's Import PEM\r\n");
         unlink(fname);
+#if USE_MX_EVENT_AGENT
         mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_DELETED);
-
+#endif
         return 1;
     } else {
         printf("Delete User's Import PEM- file open fail\r\n");
@@ -660,8 +678,9 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
     system(cmd);
     mx_do_encry(fname);
 #endif
+#if USE_MX_EVENT_AGENT
     mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_IMPORTED);
-
+#endif
     // sys_send_events(EVENT_ID_SSLIMPORT, 0);
 error:
     if (fp)
@@ -712,8 +731,9 @@ int mx_regen_cert(void)
     unlink(CERT_ENDENTITY_CERT_PATH);
     if (!ret)
         return -1;
+#if USE_MX_EVENT_AGENT        
     mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_CERT_REGEN);
-
+#endif
     return 1;
 }
 /*
@@ -913,6 +933,7 @@ int mx_do_decry_f_ex(char *certpath, char *outpath)
 */
 int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char *issueby)
 {
+#if __LINUX__
     X509 *x;
     int ret;
 
@@ -958,4 +979,5 @@ int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char
     X509_free(x);
 
     return 0;
+#endif    
 }

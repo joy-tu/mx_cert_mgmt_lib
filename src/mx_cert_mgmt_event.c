@@ -3,7 +3,8 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <arpa/inet.h>
-
+#include <mx_cert_mgmt/conf.h>
+#if (USE_MX_EVENT_AGENT) /* USE_MX_EVENT_AGENT */
 #include <mx_event/mx_event_list.h>
 #include <mx_event/mx_event_agent.h>
 #include <mx_net/mx_net.h>
@@ -60,6 +61,7 @@ int mx_cert_event_notify(int type)
         char active_ip[32] = {0};
         struct sockaddr_in addr_in;
         uint32_t my_ip[4];
+#if USE_MX_NET        
         inter = net_max_interfaces();
         if (inter > 0) {
             for (i = 0; i < inter; i++) {
@@ -81,6 +83,7 @@ int mx_cert_event_notify(int type)
              "%16s %16s",
              "Host", 
              active_ip);  
+#endif             
     } else {
         if (rest_get_input_data_info(&user_info) != REST_OK) {
             printf("rest_get_input_data_info failed\n");
@@ -110,3 +113,4 @@ int mx_cert_event_notify(int type)
     event_destroy(ctx);
     return 0;
 }
+#endif /* USE_MX_EVENT_AGENT */

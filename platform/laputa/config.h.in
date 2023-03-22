@@ -21,11 +21,11 @@
 
 #define USE_MX_CFGAPI           @LINK_MX_CFGAPI@
 
-#define __ZEPHYR__              @OS_PLATFORM_ZEPHYR@
+//#define __ZEPHYR__              @OS_PLATFORM_ZEPHYR@
 
-#define __LINUX__               @OS_PLATFORM_LINUX@
+//#define __LINUX__               @OS_PLATFORM_LINUX@
 
-#define _CFG_CERT_VERSION_    @CFG_CERT_VERSION@
+#define _CFG_CONFIG_VERSION_    @CFG_CONFIG_VERSION@
 
 #define _CFG_REST_VERSION_      @CFG_REST_VERSION@
 

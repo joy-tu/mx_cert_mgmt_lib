@@ -3,6 +3,11 @@ project(mx-cert-mgmtd VERSION 1.0.1 LANGUAGES C)
 
 set (PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 
+# compile config
+include(cmake/config.cmake)
+
+configure_file(config.h.in ${PROJECT_ROOT}/include/mx_cert_mgmt/conf.h)
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../../scripts")
 #include(astyle)
 set(MXCERT_LIB "rest-cert")

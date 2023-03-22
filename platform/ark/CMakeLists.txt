@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(mx_cfg_mgmt VERSION 1.2.0 LANGUAGES C)
+project(mx_cert_mgmt VERSION 1.1.0 LANGUAGES C)
 
 set(PROJECT_ROOT ${CMAKE_SOURCE_DIR}/../..)
 # current platform is ARK
@@ -45,7 +45,7 @@ file(MAKE_DIRECTORY ${ROOTFILES_DIR})
 
 # cmake config
 include(cmake/config.cmake)
-#configure_file(config.h.in ${PROJECT_ROOT}/include/mx_cert_mgmt/mx_cert_mgmt_rest.h)
+configure_file(config.h.in ${PROJECT_ROOT}/include/mx_cert_mgmt/conf.h)
 
 add_custom_target(SrcCodeArtifacts
 
