@@ -37,7 +37,9 @@
 #include <openssl/aes.h>
 #include <openssl/ts.h>
 #endif
-//#include<mx_net/mx_net.h>
+#if USE_MX_NET
+#include<mx_net/mx_net.h>
+#endif
 #include "mx_cert_mgmt_lib.h"
 #include "mx_cert_mgmt_event.h"
 //#include <mx_platform.h>
@@ -149,7 +151,7 @@ static int do_fake_get_serial_num(unsigned char *ser_no){
 
     return 0;
 }
-#if __LINUX__
+#if __linux__
 static int _ASN1_GENERALIZEDTIME_print(char *buf, ASN1_GENERALIZEDTIME *tm)
 {
     char *v;
@@ -222,7 +224,7 @@ static int remove_padding(unsigned char *buf)
 }
 static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert_ram)
 {
-#if __LINUX__
+#if __linux__
     char *data;
     FILE *fpr;
     int filelen, i;
@@ -255,7 +257,7 @@ static int do_decry_b(char *certpath, unsigned char *sha256, unsigned char *cert
 
 static int do_decry_f(char *certpath, unsigned char *sha256)
 {
-#if __LINUX__
+#if __linux__
     char *data;
     FILE *fpr, *fpd;
     int filelen, i;
@@ -297,7 +299,7 @@ static int do_decry_f(char *certpath, unsigned char *sha256)
 
 static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
 {
-#if __LINUX__
+#if __linux__
     char *data;
     FILE *fpr, *fpd;
     int filelen, i, len;
@@ -342,7 +344,7 @@ static int do_decry_f_ex(char *certpath, unsigned char *sha256, char *outpath)
 
 static int do_encry(char *certpath, unsigned char *sha256)
 {
-#if __LINUX__
+#if __linux__
     char *data;
     FILE *fpr, *fpe;
     int filelen, i;
@@ -381,7 +383,7 @@ static int do_encry(char *certpath, unsigned char *sha256)
 
 static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int flag)
 {
-#if __LINUX__
+#if __linux__
     char *data;
     FILE *fpr, *fpe;
     int filelen, alloclen, i;
@@ -430,7 +432,7 @@ static int do_encry_ex(char *certpath, unsigned char *sha256, char *outpath, int
 
 static int do_sha256(unsigned char *sha256)
 {
-#if __LINUX__
+#if __linux__
     SHA256_CTX sha_ctx;
     unsigned char mac[MACLEN], serial_num, seed[SEEDLEN];
     int *seed_int;
@@ -514,7 +516,7 @@ static int check_cert_type(char *pem)
  */
 static int checkCert(char *cert_file, char* key_file, int flag, char* errorStr, int errlen)
 {
-#if __LINUX__
+#if __linux__
     SSL_CTX *ctx;
     int ret;
 
@@ -933,7 +935,7 @@ int mx_do_decry_f_ex(char *certpath, char *outpath)
 */
 int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char *issueby)
 {
-#if __LINUX__
+#if __linux__
     X509 *x;
     int ret;
 

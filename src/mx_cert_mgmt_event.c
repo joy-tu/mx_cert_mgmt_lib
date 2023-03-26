@@ -7,7 +7,9 @@
 #if (USE_MX_EVENT_AGENT) /* USE_MX_EVENT_AGENT */
 #include <mx_event/mx_event_list.h>
 #include <mx_event/mx_event_agent.h>
+#if USE_MX_NET
 #include <mx_net/mx_net.h>
+#endif
 #include "mx_cert_mgmt_event.h"
 #include <rest/rest_parser.h>
 int mx_cert_event_notify(int type)
