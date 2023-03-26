@@ -1,7 +1,7 @@
 # project config
 
 # define file authentication key size
-set(DEFINE_VALUE_FILE_AUTH_SIZEM 32)
+#set(DEFINE_VALUE_FILE_AUTH_SIZEM 32)
 
 # crypto library use openssl
 set (ENABLE_OPENSSL 1)
@@ -27,11 +27,14 @@ set (LINK_MX_PLATFORM 1)
 # link lib cfgapi
 set (LINK_MX_CFGAPI 1)
 
+# link lib cfgapi
+set (LINK_MX_NET 0)
+
 # disable zephyr
-set (OS_PLATFORM_ZEPHYR 0)
+#set (OS_PLATFORM_ZEPHYR 0)
 
 # enable linux
-set (OS_PLATFORM_LINUX 1)
+#set (OS_PLATFORM_LINUX 1)
 
 # config version
 set (CFG_CERT_VERSION "1.0")

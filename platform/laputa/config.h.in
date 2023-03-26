@@ -3,7 +3,7 @@
 
 #define MX_CERT_MGMT_VERSION "@CMAKE_PROJECT_VERSION@"
 
-#define FILE_AUTH_SIZE          @DEFINE_VALUE_FILE_AUTH_SIZEM@
+//#define FILE_AUTH_SIZE          @DEFINE_VALUE_FILE_AUTH_SIZEM@
 
 #define USE_OPENSSL             @ENABLE_OPENSSL@
 
@@ -21,12 +21,14 @@
 
 #define USE_MX_CFGAPI           @LINK_MX_CFGAPI@
 
+#define USE_MX_NET              @LINK_MX_NET@
+
 //#define __ZEPHYR__              @OS_PLATFORM_ZEPHYR@
 
 //#define __LINUX__               @OS_PLATFORM_LINUX@
 
-#define _CFG_CONFIG_VERSION_    @CFG_CONFIG_VERSION@
+//#define _CFG_CONFIG_VERSION_    @CFG_CONFIG_VERSION@
 
-#define _CFG_REST_VERSION_      @CFG_REST_VERSION@
+//#define _CFG_REST_VERSION_      @CFG_REST_VERSION@
 
 #endif // __CONFIG_H__
