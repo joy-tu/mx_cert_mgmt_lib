@@ -78,7 +78,7 @@
 #define CERT_ROOTCA_KEY_LENGTH 2048
 #define MODE (S_IRWXU | S_IRWXG | S_IRWXO)  
 #if __ZEPHYR__
-#define CERTMGMT_THREAD_STACK_SIZE 1024
+#define CERTMGMT_THREAD_STACK_SIZE 10240
 static K_THREAD_STACK_DEFINE(thread_stack, CERTMGMT_THREAD_STACK_SIZE);
 #endif
 /*****************************************************************************
@@ -494,11 +494,35 @@ int mx_secure_enchance_embed_dev_d(char *certpath, char *outpath)
 #define CERT_BUF_LEN  4096
 #define DEFAULT_KEY_LENGTH  1024
 #define DEFAULT_GEN_KEY_SEED_STR      "MOXA_CONN_IDC"
+#define DEFAULT_KEY_PEM_SIZE          2048
+#define DEFAULT_CERT_PEM_SIZE         2048
+#define DEFAULT_CERT_SERIAL           "1"
+#define FLASH_SSL_CERT_HEADER         "===SSL CERTIFICATE RECORD: IP "
+#define CERT_FILE_PATH                SYSTEM_WRITABLE_FILES_PATH"/cert"
+#define CERT_FILE_NAME                "a.pem"
+#define SSL_CERTKEY_LEN               (DEFAULT_KEY_PEM_SIZE+DEFAULT_CERT_PEM_SIZE)
 
 static mbedtls_pk_context       pkey;
 static mbedtls_x509_crt         cert;
 static mbedtls_entropy_context  entropy;
 static mbedtls_ctr_drbg_context ctr;
+static int hardclock_init = 0;
+static struct timeval tv_init;
+static unsigned long mbedtls_mx_timing_hardclock(void)
+{
+    struct timeval tv_cur;
+
+    if (hardclock_init == 0)
+    {
+        gettimeofday(&tv_init, NULL);
+        hardclock_init = 1;
+    }
+
+    gettimeofday(&tv_cur, NULL);
+    return ((tv_cur.tv_sec  - tv_init.tv_sec) * 1000000
+            + (tv_cur.tv_usec - tv_init.tv_usec));
+}
+
 static int mbedtls_mx_hardclock_poll(void *data, unsigned char *output, size_t len, size_t *olen)
 {
     unsigned long timer = mbedtls_mx_timing_hardclock();
@@ -515,6 +539,188 @@ static int mbedtls_mx_hardclock_poll(void *data, unsigned char *output, size_t l
 
     return (0);
 }
+
+int mx_cert_mgmt_daemon_test(void *ptr)
+{
+
+    int rc, ret, len;
+    unsigned char *temp = NULL;
+    unsigned char date_from[16] = {0}, date_to[16] = {0};
+    struct net_if_addr *if_addr;
+    unsigned char name[32] = {0};
+    mbedtls_x509write_cert crt;
+    mbedtls_mpi serial;
+    mbedtls_pk_context *issuer_key = &pkey, *subject_key = &pkey;
+    int fd = 0;
+
+#if __ZEPHYR__
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+//    for (;;)
+//        sleep(5);
+#endif
+    if ((fd = open(CERT_FILE_PATH"/"CERT_FILE_NAME, O_RDWR | O_CREAT)) < 0)
+    {
+        printk("open fd: %d, path: %s\r\n", fd, CERT_FILE_PATH);
+    }
+    
+    temp = malloc(SSL_CERTKEY_LEN);
+    printk("Joy %s-%d, fd = %d, temp=%x\r\n", __func__, __LINE__, fd, temp);
+
+    if (temp == NULL)
+    {
+        printk("[SSL] Failed, malloc failed\r\n");
+        return -1;
+    }
+
+    memset(temp, 0, SSL_CERTKEY_LEN);
+
+    if_addr = net_if_get_by_index(1)->config.ip.ipv4->unicast;
+
+    len = sprintf((char *)temp, "%s%s\r\n",
+                  FLASH_SSL_CERT_HEADER, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
+    printk("Joy %s-%d, len =%d\r\n", __func__, __LINE__, len);
+
+    mbedtls_pk_init(&pkey);
+    mbedtls_ctr_drbg_init(&ctr);	
+    mbedtls_x509_crt_init(&cert);
+    mbedtls_entropy_init(&entropy);
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+
+    mbedtls_entropy_add_source(&entropy, mbedtls_mx_hardclock_poll, NULL,
+                           MBEDTLS_ENTROPY_MIN_PLATFORM,
+                           MBEDTLS_ENTROPY_SOURCE_STRONG);
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+#if 1
+    if ((rc = mbedtls_ctr_drbg_seed(&ctr,
+                                    mbedtls_entropy_func,
+                                    &entropy,
+                                    (unsigned char *)DEFAULT_GEN_KEY_SEED_STR,
+                                    strlen(DEFAULT_GEN_KEY_SEED_STR)))
+            != 0) {
+        printk("[SSL] Cannot seed rng rc %d %s\n", rc, MBEDTLS_CONFIG_FILE);
+        return -1;
+    }        
+#endif
+    /* generate a 1024-bit RSA key pair (ssl_gen_rsa_key) */
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+
+    if ((ret = mbedtls_pk_setup(&pkey, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA))) != 0)
+    {
+        printk("[SSL] failed! pk_setup returned -0x%04x\r\n", -ret);
+        return ret;
+    }
+
+    ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(pkey), mbedtls_ctr_drbg_random, &ctr,
+                              DEFAULT_KEY_LENGTH, 65537);
+
+    if (ret != 0)
+    {
+        printk("[SSL] failed! rsa_gen_key returned -0x%04x\r\n", -ret);
+        return ret;
+    }
+
+    // Write PEM key to buffer
+    if ((ret = mbedtls_pk_write_key_pem(&pkey, temp + len,
+                                        DEFAULT_KEY_PEM_SIZE)) != 0)
+    {
+        printk("[SSL] pk_write_key_pem failed\r\n");
+        ret = -2;
+        goto free;
+    }    
+    //len = header + key
+    len = strlen((char *)temp);
+
+    // to do : get local time
+    sprintf((char *)date_from, "%04d%02d%02d%02d%02d%02d",
+            2020,  1, 1, 0, 0, 0);
+
+    sprintf((char *)date_to, "%04d%02d%02d%02d%02d%02d",
+            2040, 1, 1, 0, 0, 0);
+
+    sprintf((char *)name, "CN=%s", net_sprint_addr(AF_INET, &if_addr->address.in_addr));
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+
+    mbedtls_x509write_crt_init(&crt);
+    mbedtls_x509write_crt_set_md_alg(&crt, MBEDTLS_MD_SHA256);
+    mbedtls_mpi_init(&serial);
+
+    if ((ret = mbedtls_mpi_read_string(&serial, 10, DEFAULT_CERT_SERIAL)) != 0)
+    {
+        printk("[SSL] failed! mpi_read_string returned -0x%02x\r\n", -ret);
+        ret = -3;
+        goto cleanup;
+    }
+
+    mbedtls_x509write_crt_set_subject_key(&crt, subject_key);
+    mbedtls_x509write_crt_set_issuer_key(&crt, issuer_key);
+
+    if ((ret = mbedtls_x509write_crt_set_subject_name(&crt, (char *)name)) != 0)
+    {
+        printk("[SSL] failed! x509write_crt_set_subject_name returned -0x%02x\r\n", -ret);
+        ret = -3;
+        goto cleanup;
+    }
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+
+    if ((ret = mbedtls_x509write_crt_set_issuer_name(&crt, (char *)name)) != 0)
+    {
+        printk("[SSL] failed! x509write_crt_set_issuer_name returned -0x%02x\r\n", -ret);
+        ret = -3;
+        goto cleanup;
+    }
+
+    if ((ret = mbedtls_x509write_crt_set_serial(&crt, &serial)) != 0)
+    {
+        printk("[SSL] failed! x509write_crt_set_serial returned -0x%02x\r\n", -ret);
+        ret = -3;
+        goto cleanup;
+    }
+
+    if ((ret = mbedtls_x509write_crt_set_validity(&crt, (char *)date_from, (char *)date_to)) != 0)
+    {
+        printk("[SSL] failed! x509write_crt_set_validity returned -0x%02x\r\n", -ret);
+        ret = -3;
+        goto cleanup;
+    }
+    if ((ret = mbedtls_x509write_crt_pem(&crt, temp + len, DEFAULT_CERT_PEM_SIZE, mbedtls_ctr_drbg_random, &ctr)) < 0)
+    {
+        printk("[SSL] failed! x509write_crt_pem returned -0x%02x\r\n", -ret);
+        ret = -3;
+        goto cleanup;
+    }
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+
+    if ((ret = mbedtls_x509_crt_parse(&cert, temp + len, DEFAULT_CERT_PEM_SIZE)) != 0)
+    {
+        printk("[SSL] failed! x509_crt_parse returned -0x%02x\r\n", -ret);
+        ret = -3;
+        goto cleanup;
+    }
+
+    //len = header + key + cert
+    len = strlen((char *)temp);
+    printf("Joy %s-%d len =%d\r\n", __func__, __LINE__, len);
+    if ((ret = write(fd, temp, len)) <= 0)
+    {
+        printk("[SSL] Save certificate fail(%d)\r\n", ret);
+    }
+    printk("Joy %s-%d, ret = %d, fd = %d len - %d\r\n", 
+        __func__, __LINE__, ret, fd, len);
+
+cleanup:
+    mbedtls_mpi_free(&serial);
+    mbedtls_x509write_crt_free(&crt);
+free:
+
+    if (temp != NULL)
+    {
+        free(temp);
+    }
+    close(fd);
+    return ret;
+
+}
+
 int mx_cert_mgmt_daemon(void *ptr)
 {
     int c = 0, ret, inter, i;
@@ -599,6 +805,7 @@ int mx_cert_mgmt_daemon(void *ptr)
         if (ret < 0)
             return -1;
 #else
+#if 0
     {
         int rc;
 
@@ -621,6 +828,7 @@ int mx_cert_mgmt_daemon(void *ptr)
             return -1;
         }        
     }
+#endif    
 #endif
     }
 ck_valid:
@@ -760,7 +968,6 @@ int mx_cert_mgmt_init(void)
     mk_dir(CERT_ENDENTITY_RUN_DIR);
     mk_dir(SYSTEM_WRITABLE_FILES_PATH);
     mk_dir(CERT_ENDENTITY_RW_DIR);
-    mk_dir(CERT_ENDENTITY_RWTEST_DIR);
 
     ret = cert_mgmt_rest_init("cert", &cert_mgmt_module_id);
     if (ret < 0)
@@ -772,7 +979,7 @@ int mx_cert_mgmt_init(void)
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setstack(&attr, thread_stack, CERTMGMT_THREAD_STACK_SIZE);
-    pthread_create(&cert_mgmt_thread_idx, &attr, mx_cert_mgmt_daemon, NULL);
+    pthread_create(&cert_mgmt_thread_idx, &attr, mx_cert_mgmt_daemon_test, NULL);
 #endif /* __linux__ */
 
     return 0;
