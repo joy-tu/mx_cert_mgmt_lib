@@ -78,7 +78,7 @@
 #define CERT_ROOTCA_KEY_LENGTH 2048
 #define MODE (S_IRWXU | S_IRWXG | S_IRWXO)  
 #if __ZEPHYR__
-#define CERTMGMT_THREAD_STACK_SIZE 10240
+#define CERTMGMT_THREAD_STACK_SIZE 10240*2
 static K_THREAD_STACK_DEFINE(thread_stack, CERTMGMT_THREAD_STACK_SIZE);
 #endif
 /*****************************************************************************
@@ -493,21 +493,24 @@ int mx_secure_enchance_embed_dev_d(char *certpath, char *outpath)
 #define BUF_SZ 512
 #define CERT_BUF_LEN  4096
 #define DEFAULT_KEY_LENGTH  1024
+#if USE_MBEDTLS
 #define DEFAULT_GEN_KEY_SEED_STR      "MOXA_CONN_IDC"
 #define DEFAULT_KEY_PEM_SIZE          2048
 #define DEFAULT_CERT_PEM_SIZE         2048
 #define DEFAULT_CERT_SERIAL           "1"
 #define FLASH_SSL_CERT_HEADER         "===SSL CERTIFICATE RECORD: IP "
 #define CERT_FILE_PATH                SYSTEM_WRITABLE_FILES_PATH"/cert"
-#define CERT_FILE_NAME                "a.pem"
+#define CERT_FILE_NAME                "endentity.pem"
 #define SSL_CERTKEY_LEN               (DEFAULT_KEY_PEM_SIZE+DEFAULT_CERT_PEM_SIZE)
 
+static unsigned char certificate[SSL_CERTKEY_LEN] = {0}; 
 static mbedtls_pk_context       pkey;
 static mbedtls_x509_crt         cert;
 static mbedtls_entropy_context  entropy;
 static mbedtls_ctr_drbg_context ctr;
 static int hardclock_init = 0;
 static struct timeval tv_init;
+#endif
 static unsigned long mbedtls_mx_timing_hardclock(void)
 {
     struct timeval tv_cur;
@@ -540,10 +543,220 @@ static int mbedtls_mx_hardclock_poll(void *data, unsigned char *output, size_t l
     return (0);
 }
 
+static int getCnFromSubject(char *cn_buf, int *cn_len, char *input_buf)
+{
+    char *ptr1, *ptr2;
+    int ret = 0;
+
+    ptr1 = strstr(input_buf, "CN=");
+    if (ptr1 == NULL)
+    {
+        ret = -1;
+        goto exit;
+    }
+    ptr1 += 3; // ignore "CN=""
+    ptr2 = strstr(ptr1, ",");
+    // indicate there is no char after CN=
+    if (ptr2 == NULL)
+        ptr2 = input_buf + strlen(input_buf);
+    *cn_len = ptr2 - ptr1;
+    memcpy(cn_buf, ptr1, *cn_len);  // copy CN into buffer
+    cn_buf[*cn_len] = 0;
+exit:
+    return ret;
+}
+
+int sslX509_info(int type, char *infile, char *info, int info_len)
+{
+    int ret = 0;
+    char *tmp_buf;
+    int tmp_len = 500;
+
+    /* Malloc tmp buffer to put info */
+    tmp_buf = malloc(tmp_len);
+    if (tmp_buf == NULL)
+    {
+        ret = -1;
+        goto exit;
+    }
+    memset(tmp_buf, 0, tmp_len);
+
+    /* Check the certificate valid or not */
+    if (strcmp(infile, "endentity.pem") != 0 /* || SSL_chk_flash_cert() != 0*/)
+    {
+        ret = -1;
+        goto exit;
+    }
+
+    /* Get info */
+    if (type == 0)       /* Issued to */
+    {
+        ret = mbedtls_x509_dn_gets(tmp_buf, tmp_len, &(cert.subject));
+        getCnFromSubject(info, &info_len, tmp_buf);
+    }
+    else if (type == 1)  /* Issued by */
+    {
+        ret = mbedtls_x509_dn_gets(tmp_buf, tmp_len, &(cert.issuer));
+        getCnFromSubject(info, &info_len, tmp_buf);
+    }
+    else if (type == 2)  /* Valid from */
+    {
+        ret = snprintf(info, info_len, "%d/%d/%d",
+                       cert.valid_from.year, cert.valid_from.mon,
+                       cert.valid_from.day);
+    }
+    else if (type == 3)  /* Valid to */
+    {
+        ret = snprintf(info, info_len, "%d/%d/%d",
+                       cert.valid_to.year, cert.valid_to.mon,
+                       cert.valid_to.day);
+    }
+    else
+    {
+        strncpy(info, "Invalid type", info_len);
+        info[info_len - 1] = 0;
+        ret = -1;
+    }
+
+exit:
+    if (tmp_buf != NULL)
+        SSL_FREE(tmp_buf);
+    return ret;
+}
+
+int ssl_cert_load(void)
+{
+    int ret, fd = 0;
+    int gen_cert = 1;
+    int info_len = 1024;
+    DIR *dir;
+    char info[1024] = {0};
+
+    ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
+                                        CERT_ENDENTITY_TMP_PATH); 
+    if (ret != 0) {
+        printf("[Err] crypto_decryption %d\r\n", ret);   
+        return ret;
+    } 
+    
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+    if ((dir = opendir(CERT_ENDENTITY_RUN_DIR)))
+    {
+        closedir(dir);
+    }
+    else
+    {
+        mkdir(CERT_ENDENTITY_RUN_DIR, 777);
+    }
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+    if ((fd = open(CERT_ENDENTITY_TMP_PATH, O_RDWR | O_CREAT)) < 0)
+    {
+        printk("open fd: %d, path: %s\r\n", fd, CERT_ENDENTITY_TMP_PATH);
+    }
+    printk("Joy %s-%d fd =%d\r\n", __func__, __LINE__, fd);
+    if (fd > 0)
+    {
+        ret = read(fd, certificate, SSL_CERTKEY_LEN);
+        printk("Joy %s-%d, read len = %d\r\n", __func__, __LINE__, ret);
+//        if ((ret = read(fd, key_tmp, SSL_CERTKEY_LEN)) > 0)
+        if (ret > 0)
+        {
+            mbedtls_ctr_drbg_context ctr_drbg;
+            mbedtls_ctr_drbg_init(&ctr_drbg);
+            printk("Joy %s-%d\r\n", __func__, __LINE__);
+            printk("%s\r\n", certificate);
+
+            if ((ret = mbedtls_pk_parse_key(&pkey, certificate, SSL_CERTKEY_LEN, NULL, 0,
+                                            mbedtls_ctr_drbg_random, &ctr_drbg)) != 0)
+            {
+                printk("[SSL] failed! pk_parse_key returned -0x%x\n\n", -ret);
+            }
+            else if ((ret = mbedtls_x509_crt_parse(&cert, certificate, SSL_CERTKEY_LEN)) != 0)
+            {
+                printk("[SSL] failed! x509_crt_parse returned -0x%X\r\n", -ret);
+            }
+            else
+            {
+                gen_cert = 0;
+            }
+        }
+        printk("Joy %s-%d, len=%d, y=%d,m=%d,d=%d\r\n", __func__, __LINE__, 
+            ret, 
+            cert.valid_from.year,
+            cert.valid_from.mon,
+            cert.valid_from.day);
+#if 0        
+        ret = snprintf(info, info_len, "%d/%d/%d",
+                       cert.valid_from.year, cert.valid_from.mon,
+                       cert.valid_from.day);      
+        printk("Joy %s-%d, info=%s, ret = %d\r\n", __func__, __LINE__, info, ret);
+        ret = snprintf(info, info_len, "%d/%d/%d",
+                       cert.valid_to.year, cert.valid_to.mon,
+                       cert.valid_to.day);                       
+        printk("Joy %s-%d, info=%s\r\n", __func__, __LINE__, info);                       
+#endif        
+    }
+    else
+    {
+        printk("Joy %s-%d\r\n", __func__, __LINE__);
+        printk("[SSL] Open cert file fail (fd:%d)\r\n", fd);
+
+        close(fd);
+     
+        return -1;
+    } 
+
+    close(fd);
+
+    return 0;
+}
+
+static int mbed_init(void)
+{    
+    int rc;
+    
+    mbedtls_pk_init(&pkey);
+    mbedtls_ctr_drbg_init(&ctr);	
+    mbedtls_x509_crt_init(&cert);
+    mbedtls_entropy_init(&entropy);
+ 
+    mbedtls_entropy_add_source(&entropy, mbedtls_mx_hardclock_poll, NULL,
+                           MBEDTLS_ENTROPY_MIN_PLATFORM,
+                           MBEDTLS_ENTROPY_SOURCE_STRONG);
+     if ((rc = mbedtls_ctr_drbg_seed(&ctr,
+                                    mbedtls_entropy_func,
+                                    &entropy,
+                                    (unsigned char *)DEFAULT_GEN_KEY_SEED_STR,
+                                    strlen(DEFAULT_GEN_KEY_SEED_STR)))
+            != 0) {
+        printk("[SSL] Cannot seed rng rc %d %s\n", rc, MBEDTLS_CONFIG_FILE);
+        return -1;
+    }      
+    return 0;
+}
+static int mx_cert_gen_priv_key_mbed(void)
+{
+    int ret;
+    
+    if ((ret = mbedtls_pk_setup(&pkey, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA))) != 0) {
+        printk("[SSL] failed! pk_setup returned -0x%04x\r\n", -ret);
+        return ret;
+    }
+    ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(pkey), mbedtls_ctr_drbg_random, &ctr,
+                              DEFAULT_KEY_LENGTH, 65537);
+
+    if (ret != 0) {
+        printk("[SSL] failed! rsa_gen_key returned -0x%04x\r\n", -ret);
+        return ret;
+    }
+
+    return 0;
+}
+
+#if 1
 int mx_cert_mgmt_daemon_test(void *ptr)
 {
-
-    int rc, ret, len;
+    int ret, len;
     unsigned char *temp = NULL;
     unsigned char date_from[16] = {0}, date_to[16] = {0};
     struct net_if_addr *if_addr;
@@ -553,14 +766,38 @@ int mx_cert_mgmt_daemon_test(void *ptr)
     mbedtls_pk_context *issuer_key = &pkey, *subject_key = &pkey;
     int fd = 0;
 
-#if __ZEPHYR__
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-//    for (;;)
-//        sleep(5);
-#endif
-    if ((fd = open(CERT_FILE_PATH"/"CERT_FILE_NAME, O_RDWR | O_CREAT)) < 0)
+    /* call mbed_init*/ 
+    ret = mbed_init( );        
+
+    /* check the type of certificate */
+    ret = mx_tell_cert_type(CERT_ENDENTITY_PEM_PATH);
+    if (ret == CERT_TYPE_IMPORT) {
+        printk("Certificate is Imported\r\n");
+        goto mbed_ck_valid;
+    } else {
+        printk("Certificate is Self-Gened\r\n");
+    }
+
+    /* check the IP of certificate */
+    ret = check_certificate(1);
+    if (ret == 1) { /* Certificate already exists in db */
+        printk("IP of Certificate is Correct\r\n");
+        goto mbed_ck_valid;
+    } else {
+        /* Generate Key & CSR & sign cert & combine */
+//        mx_cert_gen_priv_key_mbed();
+
+    }
+#if 1    
+    ret = ssl_cert_load();
+    if (ret == -1)
+        printk("Certificate is not exist!!!\r\n");
+    if (!ret)
+        for (;;)
+            sleep(10);
+    if ((fd = open(CERT_ENDENTITY_TMP_PATH, O_RDWR | O_CREAT)) < 0)
     {
-        printk("open fd: %d, path: %s\r\n", fd, CERT_FILE_PATH);
+        printk("open fd: %d, path: %s\r\n", fd, CERT_ENDENTITY_TMP_PATH);
     }
     
     temp = malloc(SSL_CERTKEY_LEN);
@@ -580,27 +817,6 @@ int mx_cert_mgmt_daemon_test(void *ptr)
                   FLASH_SSL_CERT_HEADER, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
     printk("Joy %s-%d, len =%d\r\n", __func__, __LINE__, len);
 
-    mbedtls_pk_init(&pkey);
-    mbedtls_ctr_drbg_init(&ctr);	
-    mbedtls_x509_crt_init(&cert);
-    mbedtls_entropy_init(&entropy);
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-
-    mbedtls_entropy_add_source(&entropy, mbedtls_mx_hardclock_poll, NULL,
-                           MBEDTLS_ENTROPY_MIN_PLATFORM,
-                           MBEDTLS_ENTROPY_SOURCE_STRONG);
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-#if 1
-    if ((rc = mbedtls_ctr_drbg_seed(&ctr,
-                                    mbedtls_entropy_func,
-                                    &entropy,
-                                    (unsigned char *)DEFAULT_GEN_KEY_SEED_STR,
-                                    strlen(DEFAULT_GEN_KEY_SEED_STR)))
-            != 0) {
-        printk("[SSL] Cannot seed rng rc %d %s\n", rc, MBEDTLS_CONFIG_FILE);
-        return -1;
-    }        
-#endif
     /* generate a 1024-bit RSA key pair (ssl_gen_rsa_key) */
     printk("Joy %s-%d\r\n", __func__, __LINE__);
 
@@ -609,6 +825,7 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         printk("[SSL] failed! pk_setup returned -0x%04x\r\n", -ret);
         return ret;
     }
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
 
     ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(pkey), mbedtls_ctr_drbg_random, &ctr,
                               DEFAULT_KEY_LENGTH, 65537);
@@ -618,6 +835,7 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         printk("[SSL] failed! rsa_gen_key returned -0x%04x\r\n", -ret);
         return ret;
     }
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
 
     // Write PEM key to buffer
     if ((ret = mbedtls_pk_write_key_pem(&pkey, temp + len,
@@ -629,6 +847,7 @@ int mx_cert_mgmt_daemon_test(void *ptr)
     }    
     //len = header + key
     len = strlen((char *)temp);
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
 
     // to do : get local time
     sprintf((char *)date_from, "%04d%02d%02d%02d%02d%02d",
@@ -704,9 +923,25 @@ int mx_cert_mgmt_daemon_test(void *ptr)
     {
         printk("[SSL] Save certificate fail(%d)\r\n", ret);
     }
+    close(fd);
     printk("Joy %s-%d, ret = %d, fd = %d len - %d\r\n", 
         __func__, __LINE__, ret, fd, len);
+    ret = crypto_encryption(CERT_ENDENTITY_TMP_PATH, CERT_ENDENTITY_PEM_PATH);
+    if (ret != 0) {
+        printf("[Err] crypto_decryption %d\r\n", ret);
+        return -1;
+    }        
+#endif    
+mbed_ck_valid:
 
+#if 0
+    ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
+                                        CERT_ENDENTITY_TMP_PATH); 
+    if (ret != 0) {
+        printf("[Err] crypto_decryption %d\r\n", ret);   
+        return ret;
+    } 
+#endif
 cleanup:
     mbedtls_mpi_free(&serial);
     mbedtls_x509write_crt_free(&crt);
@@ -716,10 +951,10 @@ free:
     {
         free(temp);
     }
-    close(fd);
     return ret;
 
 }
+#endif
 
 int mx_cert_mgmt_daemon(void *ptr)
 {
@@ -735,12 +970,7 @@ int mx_cert_mgmt_daemon(void *ptr)
     struct tm tm, rootca_date, endtitiy_date;
     time_t t;
     int cert_mgmt_module_id;
-#if __ZEPHYR__
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-    for (;;)
-        sleep(5);
-#endif
-#if 1
+
 #if USE_MX_NET        
     inter = net_max_interfaces();
     if (inter > 0) {
@@ -761,8 +991,6 @@ int mx_cert_mgmt_daemon(void *ptr)
         strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         dbg_printf("active_ip = %s\r\n", active_ip);
     }
-#else
-    strcpy(active_ip, "192.168.127.1");
 #endif  
 
     ret = mx_tell_cert_type(CERT_ENDENTITY_PEM_PATH);
@@ -804,31 +1032,6 @@ int mx_cert_mgmt_daemon(void *ptr)
 	 system(cmd);		
         if (ret < 0)
             return -1;
-#else
-#if 0
-    {
-        int rc;
-
-        mbedtls_pk_init(&pkey);
-        mbedtls_x509_crt_init(&cert);
-        mbedtls_ctr_drbg_init(&ctr);	
-        mbedtls_entropy_init(&entropy);
-
-        mbedtls_entropy_add_source(&entropy, mbedtls_mx_hardclock_poll, NULL,
-                               MBEDTLS_ENTROPY_MIN_PLATFORM,
-                               MBEDTLS_ENTROPY_SOURCE_STRONG);
-
-        if ((rc = mbedtls_ctr_drbg_seed(&ctr,
-                                        mbedtls_entropy_func,
-                                        &entropy,
-                                        (unsigned char *)DEFAULT_GEN_KEY_SEED_STR,
-                                        strlen(DEFAULT_GEN_KEY_SEED_STR)))
-                != 0) {
-            printk("[SSL] Cannot seed rng rc %d %s\n", rc, MBEDTLS_CONFIG_FILE);
-            return -1;
-        }        
-    }
-#endif    
 #endif
     }
 ck_valid:
@@ -935,36 +1138,14 @@ ck_valid:
         sleep(CERT_SLEEP_1DAY);
     }
     return 0;
-#endif    
+
 }
 
 int mx_cert_mgmt_init(void)
 {
     int ret;
-    int cert_mgmt_module_id;
-#if 0    
-#if USE_MX_NET        
-    inter = net_max_interfaces();
-    if (inter > 0) {
-        for (i = 0; i < inter; i++) {
-            net_get_my_ip(i, &my_ip[i]);
-            printf("my_ip - %x\r\n", my_ip[i]);
-        }
-        addr_in.sin_addr.s_addr = my_ip[0];
-        strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
-        dbg_printf("active_ip = %s\r\n", active_ip);        
-    } else { /* for docker */
-        if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
-            dbg_printf("Ok****net_get_my_ip_by_ifname - %x****\r\n", ip);
-        } else {
-            dbg_printf("Fail****net_get_my_ip_by_ifname ****\r\n");
-        }
-        addr_in.sin_addr.s_addr = ip;
-        strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
-        dbg_printf("active_ip = %s\r\n", active_ip);
-    }
-#endif    
-#endif
+    int cert_mgmt_module_id;  
+
     mk_dir(CERT_ENDENTITY_RUN_DIR);
     mk_dir(SYSTEM_WRITABLE_FILES_PATH);
     mk_dir(CERT_ENDENTITY_RW_DIR);
@@ -982,159 +1163,7 @@ int mx_cert_mgmt_init(void)
     pthread_create(&cert_mgmt_thread_idx, &attr, mx_cert_mgmt_daemon_test, NULL);
 #endif /* __linux__ */
 
-    return 0;
-
-#if 0
-    ret = mx_tell_cert_type(CERT_ENDENTITY_PEM_PATH);
-    if (ret == CERT_TYPE_IMPORT) {
-        dbg_printf("Certificate is Imported\r\n");
-    } else {
-        dbg_printf("Certificate is Self-Gened\r\n");
-    }
-    if (check_import(1) == 1) {   // Found import.
-        goto ck_valid;
-    }
-    ret = check_certificate(1);
-    if (ret == 1) { /* Certificate already exists in db */
-        goto ck_valid;
-    } else {
-        /* Generate Key & CSR & sign cert & combine */
-        printf("Generating certificate................\r\n");
-#if __linux__
-        mx_secure_enchance_embed_dev_d(CERT_ROOTCA_KEY_SECURE
-			, CERT_ROOTCA_KEY_PATH);
-#endif
-        mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
-        mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
-        mx_cert_sign_cert(
-            CERT_ENDENTITY_CSR_PATH,
-            CERT_ROOTCA_CERT_PATH,
-            CERT_ROOTCA_KEY_PATH,
-            CERT_ENDENTITY_VALID_DAY,
-            CERT_ENDENTITY_CERT_PATH,
-            active_ip);
-
-        ret = mx_cert_combine_ip_key_cert(CERT_ENDENTITY_PEM_PATH,
-                active_ip,
-                CERT_ENDENTITY_KEY_PATH,
-                CERT_ENDENTITY_CERT_PATH); 
-	 sprintf(cmd, "rm %s", 
-	            CERT_ROOTCA_KEY_PATH);
-	 system(cmd);		
-        if (ret < 0)
-            return -1;
-    }
-ck_valid:
-    /* Get rootca && end entity expiration date */
-#ifdef OPTEE_DECRY_ENCRY
-    ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
-                                        CERT_ENDENTITY_TMP_PATH); 
-    if (ret != 0) {
-        printf("[Err] crypto_decryption %d\r\n", ret);   
-        return ret;
-    }        
-#else
-    ret = mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
-    
-    if (ret < 0)
-        return ret;       
-#endif
-#if __linux__	
-    x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
-//    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
-//    unlink(CERT_ENDENTITY_TMP_PATH);
-    if (x == NULL)
-    {
-        printf("TS_CONF_load_cert(%s) failed!\n", CERT_ENDENTITY_TMP_PATH);
-        /* net_get_my_mac() will not fill MAC if no interface found,
-         * resulting in do_sha256() using different key each time called,
-         * and certificate will not correctly decrpyted so
-         * TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH) will return NULL.
-         * Segmentation fault when calling X509_get_notBefore(NULL)
-         * in the following */
-        return -1;
-    }
-#endif
-    memset(tmp, 0 , sizeof(tmp));
-    memset(_buf, 0 , sizeof(_buf));	
-    memset(&rootca_date, 0 , sizeof(rootca_date));	
-#if __linux__	
-    ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
-    ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
-
-    ret = cert_get_valid_date(_buf, &rootca_date);
-    strftime(tmp, sizeof(tmp), "rootca_date:%c\r\n", &rootca_date);
-    X509_free(x);
-    
-    dbg_printf(tmp);
-//    x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
-    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
-    unlink(CERT_ENDENTITY_TMP_PATH);
-    if (x == NULL)
-        return -1;
-#endif
-    memset(tmp, 0 , sizeof(tmp));
-    memset(_buf, 0 , sizeof(_buf));	
-    memset(&endtitiy_date, 0 , sizeof(endtitiy_date));		
-#if __linux__
-    ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
-    ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x));   
-
-    ret = cert_get_valid_date(_buf, &endtitiy_date);
-    strftime(tmp, sizeof(tmp), "endtitiy_date:%c\r\n", &endtitiy_date);
-    X509_free(x);
-#endif
-    dbg_printf(tmp);
-     //sleep(CERT_SLEEP_5MIN);
-    {
-        char start[128], end[128], issueto[128], issueby[128];
-        mx_get_cert_info(CERT_ENDENTITY_TMP_PATH, start, end, issueto, issueby);
-        dbg_printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
-    }
-    while (!cert_mgmt_terminate) {
-        /* compare the date between now and rootca/end entity */
-        int ret;
-        t = time(NULL);
-
-        tm = *localtime(&t);
-	 tm.tm_year = tm.tm_year + 1900;
-	 tm.tm_mon = tm.tm_mon + 1;
-	 rootca_date.tm_year = rootca_date.tm_year + 1900;
-	 endtitiy_date.tm_year = endtitiy_date.tm_year + 1900;
-	 
-        //tm.tm_year += 20;
-        strftime(tmp, sizeof(tmp), "now_date:%c\r\n", &tm);
-        dbg_printf(tmp);
-        ret = cert_ck_expire(&tm, &rootca_date);
-        if (ret > 0) {
-            dbg_printf("todo send for rootca will expired (%d)\r\n", ret);
-#if USE_MX_EVENT_AGENT            
-            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE);
-#endif            
-        } else if (ret < 0) {
-            dbg_printf("todo send for rootca expired (%d)\r\n", ret);      
-#if USE_MX_EVENT_AGENT            
-            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_EXPIRE);
-#endif
-        }
-        ret = cert_ck_expire(&tm, &endtitiy_date);
-        if (ret > 0) {
-            dbg_printf("todo send for end-cert will expired (%d)\r\n", ret);
-#if USE_MX_EVENT_AGENT            
-            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_WILL_EXPIRE);
-#endif            
-        } else if (ret < 0) {
-            dbg_printf("todo send for end-cert expired (%d)\r\n", ret); 
-#if USE_MX_EVENT_AGENT            
-            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_EXPIRE);
-#endif            
-        }
-        dbg_printf("now: %d-%02d-%02d %02d:%02d:%02d, checking expiration date...\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-
-        sleep(CERT_SLEEP_1DAY);
-    }
-    return 0;
-#endif    
+    return 0;  
 }
 
 #if __linux__
@@ -1184,200 +1213,6 @@ int main(int argc, char *argv[])
     mx_cert_mgmt_init();
     
     exit(EXIT_SUCCESS);
-#endif    
-#if 0
-#if USE_MX_NET        
-    inter = net_max_interfaces();
-    if (inter > 0) {
-        for (i = 0; i < inter; i++) {
-            net_get_my_ip(i, &my_ip[i]);
-            printf("my_ip - %x\r\n", my_ip[i]);
-        }
-        addr_in.sin_addr.s_addr = my_ip[0];
-        strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
-        dbg_printf("active_ip = %s\r\n", active_ip);        
-    } else { /* for docker */
-        if (net_get_my_ip_by_ifname("eth0", &ip) == 0) {
-            dbg_printf("Ok****net_get_my_ip_by_ifname - %x****\r\n", ip);
-        } else {
-            dbg_printf("Fail****net_get_my_ip_by_ifname ****\r\n");
-        }
-        addr_in.sin_addr.s_addr = ip;
-        strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
-        dbg_printf("active_ip = %s\r\n", active_ip);
-    }
-#endif    
-    mk_dir(CERT_ENDENTITY_RUN_DIR);
-    mk_dir(SYSTEM_WRITABLE_FILES_PATH);
-    mk_dir(CERT_ENDENTITY_RW_DIR);
-
-    ret = cert_mgmt_rest_init("cert", &cert_mgmt_module_id);
-    if (ret < 0)
-        return EXIT_FAILURE;
-    //mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE);
-#if 0 
-    sprintf(cmd, "openssl genrsa -out %s %d", 
-                CERT_ROOTCA_KEY_PATH,
-                CERT_ROOTCA_KEY_LENGTH);
-    system(cmd);
-
-    sprintf(cmd, "openssl req -new -x509 -key %s -days %d -sha256 \
-                -extensions v3_ca -out %s \
-                -subj /C=TW/ST=Taiwan/L="New Taipei"/O=Moxa/OU=MGate/CN=\"Moxa Inc.\"/emailAddress=taiwan@moxa.com",
-                CERT_ROOTCA_KEY_PATH,
-                CERT_ROOTCA_VALID_DAY,
-                CERT_ROOTCA_CERT_PATH);
-    system(cmd);            
-#endif
-    ret = mx_tell_cert_type(CERT_ENDENTITY_PEM_PATH);
-    if (ret == CERT_TYPE_IMPORT) {
-        dbg_printf("Certificate is Imported\r\n");
-    } else {
-        dbg_printf("Certificate is Self-Gened\r\n");
-    }
-    if (check_import(1) == 1) {   // Found import.
-        goto ck_valid;
-    }
-    ret = check_certificate(1);
-    if (ret == 1) { /* Certificate already exists in db */
-        goto ck_valid;
-    } else {
-        /* Generate Key & CSR & sign cert & combine */
-        printf("Generating certificate................\r\n");
-#if __linux__
-        mx_secure_enchance_embed_dev_d(CERT_ROOTCA_KEY_SECURE
-			, CERT_ROOTCA_KEY_PATH);
-#endif
-        mx_cert_gen_priv_key(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_KEY_LENGTH);
-        mx_cert_gen_csr(CERT_ENDENTITY_KEY_PATH, CERT_ENDENTITY_CSR_PATH, active_ip);
-        mx_cert_sign_cert(
-            CERT_ENDENTITY_CSR_PATH,
-            CERT_ROOTCA_CERT_PATH,
-            CERT_ROOTCA_KEY_PATH,
-            CERT_ENDENTITY_VALID_DAY,
-            CERT_ENDENTITY_CERT_PATH,
-            active_ip);
-
-        ret = mx_cert_combine_ip_key_cert(CERT_ENDENTITY_PEM_PATH,
-                active_ip,
-                CERT_ENDENTITY_KEY_PATH,
-                CERT_ENDENTITY_CERT_PATH); 
-	 sprintf(cmd, "rm %s", 
-	            CERT_ROOTCA_KEY_PATH);
-	 system(cmd);		
-        if (ret < 0)
-            return -1;
-    }
-ck_valid:
-    /* Get rootca && end entity expiration date */
-#ifdef OPTEE_DECRY_ENCRY
-    ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
-                                        CERT_ENDENTITY_TMP_PATH); 
-    if (ret != 0) {
-        printf("[Err] crypto_decryption %d\r\n", ret);   
-        return ret;
-    }        
-#else
-    ret = mx_do_decry_f(CERT_ENDENTITY_PEM_PATH);
-    
-    if (ret < 0)
-        return ret;       
-#endif
-#if __linux__	
-    x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
-//    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
-//    unlink(CERT_ENDENTITY_TMP_PATH);
-    if (x == NULL)
-    {
-        printf("TS_CONF_load_cert(%s) failed!\n", CERT_ENDENTITY_TMP_PATH);
-        /* net_get_my_mac() will not fill MAC if no interface found,
-         * resulting in do_sha256() using different key each time called,
-         * and certificate will not correctly decrpyted so
-         * TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH) will return NULL.
-         * Segmentation fault when calling X509_get_notBefore(NULL)
-         * in the following */
-        return -1;
-    }
-#endif
-    memset(tmp, 0 , sizeof(tmp));
-    memset(_buf, 0 , sizeof(_buf));	
-    memset(&rootca_date, 0 , sizeof(rootca_date));	
-#if __linux__	
-    ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
-    ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x)); 
-
-    ret = cert_get_valid_date(_buf, &rootca_date);
-    strftime(tmp, sizeof(tmp), "rootca_date:%c\r\n", &rootca_date);
-    X509_free(x);
-    
-    dbg_printf(tmp);
-//    x = TS_CONF_load_cert(CERT_ROOTCA_CERT_PATH);
-    x = TS_CONF_load_cert(CERT_ENDENTITY_TMP_PATH);
-    unlink(CERT_ENDENTITY_TMP_PATH);
-    if (x == NULL)
-        return -1;
-#endif
-    memset(tmp, 0 , sizeof(tmp));
-    memset(_buf, 0 , sizeof(_buf));	
-    memset(&endtitiy_date, 0 , sizeof(endtitiy_date));		
-#if __linux__
-    ret = _ASN1_TIME_print(_buf, X509_get_notBefore(x));
-    ret = _ASN1_TIME_print(_buf, X509_get_notAfter(x));   
-
-    ret = cert_get_valid_date(_buf, &endtitiy_date);
-    strftime(tmp, sizeof(tmp), "endtitiy_date:%c\r\n", &endtitiy_date);
-    X509_free(x);
-#endif
-    dbg_printf(tmp);
-     //sleep(CERT_SLEEP_5MIN);
-    {
-        char start[128], end[128], issueto[128], issueby[128];
-        mx_get_cert_info(CERT_ENDENTITY_TMP_PATH, start, end, issueto, issueby);
-        dbg_printf("Start=%s,End=%s, issueto=%s, issueby=%s\r\n", start, end, issueto, issueby);
-    }
-    while (!cert_mgmt_terminate) {
-        /* compare the date between now and rootca/end entity */
-        int ret;
-        t = time(NULL);
-
-        tm = *localtime(&t);
-	 tm.tm_year = tm.tm_year + 1900;
-	 tm.tm_mon = tm.tm_mon + 1;
-	 rootca_date.tm_year = rootca_date.tm_year + 1900;
-	 endtitiy_date.tm_year = endtitiy_date.tm_year + 1900;
-	 
-        //tm.tm_year += 20;
-        strftime(tmp, sizeof(tmp), "now_date:%c\r\n", &tm);
-        dbg_printf(tmp);
-        ret = cert_ck_expire(&tm, &rootca_date);
-        if (ret > 0) {
-            dbg_printf("todo send for rootca will expired (%d)\r\n", ret);
-#if USE_MX_EVENT_AGENT            
-            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_WILL_EXPIRE);
-#endif            
-        } else if (ret < 0) {
-            dbg_printf("todo send for rootca expired (%d)\r\n", ret);      
-#if USE_MX_EVENT_AGENT            
-            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ROOTCA_EXPIRE);
-#endif
-        }
-        ret = cert_ck_expire(&tm, &endtitiy_date);
-        if (ret > 0) {
-            dbg_printf("todo send for end-cert will expired (%d)\r\n", ret);
-#if USE_MX_EVENT_AGENT            
-            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_WILL_EXPIRE);
-#endif            
-        } else if (ret < 0) {
-            dbg_printf("todo send for end-cert expired (%d)\r\n", ret); 
-#if USE_MX_EVENT_AGENT            
-            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_EXPIRE);
-#endif            
-        }
-        dbg_printf("now: %d-%02d-%02d %02d:%02d:%02d, checking expiration date...\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-
-        sleep(CERT_SLEEP_1DAY);
-    }
-    return 0;
 #endif    
 }
 #endif
