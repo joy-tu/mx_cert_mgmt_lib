@@ -163,6 +163,13 @@ static int check_certificate(int active_if)
     struct sockaddr_in addr_in;
     char ipstr[128], active_ip[32];
     int ret;
+#if __ZEPHYR__
+    struct net_if_addr *if_addr;
+    if_addr = net_if_get_by_index(1)->config.ip.ipv4->unicast;
+
+    
+    printk("Joy %s-%d, ip = %s\r\n", __func__, __LINE__, net_sprint_addr(AF_INET, &if_addr->address.in_addr));    
+#endif        
 #ifdef OPTEE_DECRY_ENCRY
     fp = fopen(CERT_ENDENTITY_PEM_PATH, "r");
     if (fp != NULL) {
@@ -182,13 +189,27 @@ static int check_certificate(int active_if)
         return 0;
 #endif
     fp = fopen(CERT_ENDENTITY_TMP_PATH, "r");
+#if __ZEPHYR__
+        printk("Joy %s-%d, fp = %d\r\n", __func__, __LINE__, fp);    
+#endif        
 
     if (fp != NULL) {
+#if __ZEPHYR__
+        printk("\nFound pem file, now check ip address...\n");
+#else
         dbg_printf("\nFound pem file, now check ip address...\n");
+#endif        
         fgets(ipstr, sizeof(ipstr), fp);
+#if __ZEPHYR__
+        printk("Joy %s-%d, ipstr=%s\r\n", __func__, __LINE__, ipstr);    
+#endif        
+        
         fclose(fp);
-        unlink(CERT_ENDENTITY_TMP_PATH);
-#if USE_MX_NET        
+        unlink(CERT_ENDENTITY_TMP_PATH);        
+#if USE_MX_NET       
+#if __ZEPHYR__
+        strncpy(active_ip, net_sprint_addr(AF_INET, &if_addr->address.in_addr), sizeof(active_ip));
+#else
         inter = net_max_interfaces();
         if (inter > 0) {
             for (i = 0; i < inter; i++) {
@@ -204,10 +225,16 @@ static int check_certificate(int active_if)
             strncpy(active_ip, inet_ntoa(addr_in.sin_addr), sizeof(active_ip));
         }        
 #endif
+#endif
+#if __ZEPHYR__
+        printk("ipstr=[%s], activeIP=[%s]\n", ipstr, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
+#else
         dbg_printf("ipstr=[%s], activeIP=[%s]\n", ipstr, active_ip);
-        if (!strncmp(ipstr, active_ip, strlen(active_ip)))
+#endif
+        if (!strncmp(ipstr, active_ip, strlen(active_ip))) {
+            printk("ipstr=[%s], activeIP=[%s]\n", ipstr, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
             return 1; /* Active IP == PEM's IP */
-        else
+        } else
             return 0;
     }
     else
@@ -664,7 +691,7 @@ int ssl_cert_load(void)
             mbedtls_ctr_drbg_context ctr_drbg;
             mbedtls_ctr_drbg_init(&ctr_drbg);
             printk("Joy %s-%d\r\n", __func__, __LINE__);
-            printk("%s\r\n", certificate);
+            //printk("%s\r\n", certificate);
 
             if ((ret = mbedtls_pk_parse_key(&pkey, certificate, SSL_CERTKEY_LEN, NULL, 0,
                                             mbedtls_ctr_drbg_random, &ctr_drbg)) != 0)
@@ -789,12 +816,14 @@ int mx_cert_mgmt_daemon_test(void *ptr)
 
     }
 #if 1    
+#if 0
     ret = ssl_cert_load();
     if (ret == -1)
         printk("Certificate is not exist!!!\r\n");
     if (!ret)
         for (;;)
             sleep(10);
+#endif
     if ((fd = open(CERT_ENDENTITY_TMP_PATH, O_RDWR | O_CREAT)) < 0)
     {
         printk("open fd: %d, path: %s\r\n", fd, CERT_ENDENTITY_TMP_PATH);
@@ -813,9 +842,13 @@ int mx_cert_mgmt_daemon_test(void *ptr)
 
     if_addr = net_if_get_by_index(1)->config.ip.ipv4->unicast;
 
-    len = sprintf((char *)temp, "%s%s\r\n",
-                  FLASH_SSL_CERT_HEADER, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
-    printk("Joy %s-%d, len =%d\r\n", __func__, __LINE__, len);
+//    len = sprintf((char *)temp, "%s%s\r\n",
+//                  FLASH_SSL_CERT_HEADER, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
+    len = sprintf((char *)temp, "%s\r\n",
+                net_sprint_addr(AF_INET, &if_addr->address.in_addr));
+
+    printk("Joy %s-%d, len =%d, ip - %s\r\n", __func__, __LINE__, len, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
+    
 
     /* generate a 1024-bit RSA key pair (ssl_gen_rsa_key) */
     printk("Joy %s-%d\r\n", __func__, __LINE__);
@@ -931,9 +964,19 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         printf("[Err] crypto_decryption %d\r\n", ret);
         return -1;
     }        
+    unlink(CERT_ENDENTITY_TMP_PATH);
 #endif    
 mbed_ck_valid:
-
+#if 1
+    ret = ssl_cert_load();
+    if (ret == -1)
+        printk("Certificate is not exist!!!\r\n");
+    if (!ret) {
+        printk("Certificate Found!!!\r\n");
+    }
+    for (;;)
+        sleep(10);
+#endif
 #if 0
     ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
                                         CERT_ENDENTITY_TMP_PATH); 
