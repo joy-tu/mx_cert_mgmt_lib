@@ -651,7 +651,7 @@ exit:
     return ret;
 }
 
-int ssl_cert_load(void)
+int ssl_cert_load(int regen)
 {
     int ret, fd = 0;
     int gen_cert = 1;
@@ -659,13 +659,14 @@ int ssl_cert_load(void)
     DIR *dir;
     char info[1024] = {0};
 
-    ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
+    if (regen == 0) {
+        ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
                                         CERT_ENDENTITY_TMP_PATH); 
-    if (ret != 0) {
-        printf("[Err] crypto_decryption %d\r\n", ret);   
-        return ret;
-    } 
-    
+        if (ret != 0) {
+            printf("[Err] crypto_decryption %d\r\n", ret);   
+            return ret;
+        } 
+    }
     printk("Joy %s-%d\r\n", __func__, __LINE__);
     if ((dir = opendir(CERT_ENDENTITY_RUN_DIR)))
     {
@@ -779,11 +780,74 @@ static int mx_cert_gen_priv_key_mbed(void)
 
     return 0;
 }
+static int mx_cert_sign_cert_mbed(mbedtls_x509write_cert *crt)
+{
+    mbedtls_mpi serial;
+    unsigned char date_from[16] = {0}, date_to[16] = {0};
+    mbedtls_pk_context *issuer_key = &pkey, *subject_key = &pkey;
+    unsigned char name[32] = {0};
+    struct net_if_addr *if_addr;
+    int ret;
 
+    if_addr = net_if_get_by_index(1)->config.ip.ipv4->unicast;
+
+    // to do : get local time
+    sprintf((char *)date_from, "%04d%02d%02d%02d%02d%02d",
+            2020,  1, 1, 0, 0, 0);
+
+    sprintf((char *)date_to, "%04d%02d%02d%02d%02d%02d",
+            2040, 1, 1, 0, 0, 0);
+
+    sprintf((char *)name, "CN=%s", net_sprint_addr(AF_INET, &if_addr->address.in_addr));
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+
+    mbedtls_x509write_crt_init(crt);
+    mbedtls_x509write_crt_set_md_alg(crt, MBEDTLS_MD_SHA256);
+    mbedtls_mpi_init(&serial);
+
+    if ((ret = mbedtls_mpi_read_string(&serial, 10, DEFAULT_CERT_SERIAL)) != 0)
+    {
+        printk("[SSL] failed! mpi_read_string returned -0x%02x\r\n", -ret);
+        return -3;
+    }
+
+    mbedtls_x509write_crt_set_subject_key(crt, subject_key);
+    mbedtls_x509write_crt_set_issuer_key(crt, issuer_key);
+
+    if ((ret = mbedtls_x509write_crt_set_subject_name(crt, (char *)name)) != 0)
+    {
+        printk("[SSL] failed! x509write_crt_set_subject_name returned -0x%02x\r\n", -ret);
+        return -3;
+    }
+    printk("Joy %s-%d\r\n", __func__, __LINE__);
+
+    if ((ret = mbedtls_x509write_crt_set_issuer_name(crt, (char *)name)) != 0)
+    {
+        printk("[SSL] failed! x509write_crt_set_issuer_name returned -0x%02x\r\n", -ret);
+        return -3;
+    }
+
+    if ((ret = mbedtls_x509write_crt_set_serial(crt, &serial)) != 0)
+    {
+        printk("[SSL] failed! x509write_crt_set_serial returned -0x%02x\r\n", -ret);
+        return -3;
+    }
+
+    if ((ret = mbedtls_x509write_crt_set_validity(crt, (char *)date_from, (char *)date_to)) != 0)
+    {
+        printk("[SSL] failed! x509write_crt_set_validity returned -0x%02x\r\n", -ret);
+        return -3;
+    }
+
+}
+
+//#define __MEMORY__
+//#define __GENKEY__
+//#define __SIGNCERT__
 #if 1
 int mx_cert_mgmt_daemon_test(void *ptr)
 {
-    int ret, len;
+    int ret, len, regen = 0;
     unsigned char *temp = NULL;
     unsigned char date_from[16] = {0}, date_to[16] = {0};
     struct net_if_addr *if_addr;
@@ -793,6 +857,20 @@ int mx_cert_mgmt_daemon_test(void *ptr)
     mbedtls_pk_context *issuer_key = &pkey, *subject_key = &pkey;
     int fd = 0;
 
+#ifndef __MEMORY__
+    temp = malloc(SSL_CERTKEY_LEN);
+
+    if (temp == NULL) {
+        printk("[SSL] Failed, malloc failed\r\n");
+        return -1;
+    }
+    memset(temp, 0, SSL_CERTKEY_LEN);
+
+    if_addr = net_if_get_by_index(1)->config.ip.ipv4->unicast;
+
+    len = sprintf((char *)temp, "%s\r\n",
+                net_sprint_addr(AF_INET, &if_addr->address.in_addr));    
+#endif
     /* call mbed_init*/ 
     ret = mbed_init( );        
 
@@ -811,24 +889,21 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         printk("IP of Certificate is Correct\r\n");
         goto mbed_ck_valid;
     } else {
+        regen = 1;
         /* Generate Key & CSR & sign cert & combine */
-//        mx_cert_gen_priv_key_mbed();
-
+#ifndef __GENKEY__  
+        mx_cert_gen_priv_key_mbed();
+#endif
+#ifndef __SIGNCERT__
+        mx_cert_sign_cert_mbed(&crt);
+#endif
     }
 #if 1    
-#if 0
-    ret = ssl_cert_load();
-    if (ret == -1)
-        printk("Certificate is not exist!!!\r\n");
-    if (!ret)
-        for (;;)
-            sleep(10);
-#endif
     if ((fd = open(CERT_ENDENTITY_TMP_PATH, O_RDWR | O_CREAT)) < 0)
     {
         printk("open fd: %d, path: %s\r\n", fd, CERT_ENDENTITY_TMP_PATH);
     }
-    
+#ifdef __MEMORY__
     temp = malloc(SSL_CERTKEY_LEN);
     printk("Joy %s-%d, fd = %d, temp=%x\r\n", __func__, __LINE__, fd, temp);
 
@@ -837,19 +912,18 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         printk("[SSL] Failed, malloc failed\r\n");
         return -1;
     }
-
     memset(temp, 0, SSL_CERTKEY_LEN);
+
 
     if_addr = net_if_get_by_index(1)->config.ip.ipv4->unicast;
 
-//    len = sprintf((char *)temp, "%s%s\r\n",
-//                  FLASH_SSL_CERT_HEADER, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
     len = sprintf((char *)temp, "%s\r\n",
                 net_sprint_addr(AF_INET, &if_addr->address.in_addr));
 
     printk("Joy %s-%d, len =%d, ip - %s\r\n", __func__, __LINE__, len, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
-    
+#endif    
 
+#ifdef __GENKEY__
     /* generate a 1024-bit RSA key pair (ssl_gen_rsa_key) */
     printk("Joy %s-%d\r\n", __func__, __LINE__);
 
@@ -869,7 +943,7 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         return ret;
     }
     printk("Joy %s-%d\r\n", __func__, __LINE__);
-
+#endif
     // Write PEM key to buffer
     if ((ret = mbedtls_pk_write_key_pem(&pkey, temp + len,
                                         DEFAULT_KEY_PEM_SIZE)) != 0)
@@ -881,7 +955,7 @@ int mx_cert_mgmt_daemon_test(void *ptr)
     //len = header + key
     len = strlen((char *)temp);
     printk("Joy %s-%d\r\n", __func__, __LINE__);
-
+#ifdef __SIGNCERT__
     // to do : get local time
     sprintf((char *)date_from, "%04d%02d%02d%02d%02d%02d",
             2020,  1, 1, 0, 0, 0);
@@ -934,6 +1008,7 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         ret = -3;
         goto cleanup;
     }
+#endif    
     if ((ret = mbedtls_x509write_crt_pem(&crt, temp + len, DEFAULT_CERT_PEM_SIZE, mbedtls_ctr_drbg_random, &ctr)) < 0)
     {
         printk("[SSL] failed! x509write_crt_pem returned -0x%02x\r\n", -ret);
@@ -941,17 +1016,21 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         goto cleanup;
     }
     printk("Joy %s-%d\r\n", __func__, __LINE__);
-
+#if 1
     if ((ret = mbedtls_x509_crt_parse(&cert, temp + len, DEFAULT_CERT_PEM_SIZE)) != 0)
     {
         printk("[SSL] failed! x509_crt_parse returned -0x%02x\r\n", -ret);
         ret = -3;
         goto cleanup;
     }
-
+        printk("Joy %s-%d, len=%d, y=%d,m=%d,d=%d\r\n", __func__, __LINE__, 
+            ret, 
+            cert.valid_from.year,
+            cert.valid_from.mon,
+            cert.valid_from.day);    
+#endif
     //len = header + key + cert
     len = strlen((char *)temp);
-    printf("Joy %s-%d len =%d\r\n", __func__, __LINE__, len);
     if ((ret = write(fd, temp, len)) <= 0)
     {
         printk("[SSL] Save certificate fail(%d)\r\n", ret);
@@ -964,11 +1043,11 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         printf("[Err] crypto_decryption %d\r\n", ret);
         return -1;
     }        
-    unlink(CERT_ENDENTITY_TMP_PATH);
+    //unlink(CERT_ENDENTITY_TMP_PATH);
 #endif    
 mbed_ck_valid:
 #if 1
-    ret = ssl_cert_load();
+    ret = ssl_cert_load(regen);
     if (ret == -1)
         printk("Certificate is not exist!!!\r\n");
     if (!ret) {
