@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include<dirent.h>  
 #include <getopt.h>
 #include <netinet/in.h>
 #include <string.h>
@@ -25,6 +27,7 @@
 #include <mbedtls/aes.h>
 #include <mbedtls/cipher.h>
 #include "mbedtls/md.h"
+#include "mbedtls/x509_crt.h"
 #else   /* Linux */
 #include <linux/sockios.h>
 #include <openssl/crypto.h>
@@ -64,6 +67,7 @@
 #define SHA256LEN                  32
 #define SEEDLEN                       16
 #define MACLEN                          6
+#define CERT_LEN    4096
 /*****************************************************************************
  * Private types/enumerations/variables
  ****************************************************************************/
@@ -928,6 +932,28 @@ int mx_do_decry_f_ex(char *certpath, char *outpath)
     return ret;
 }
 
+static int getCnFromSubject(char *cn_buf, int *cn_len, char *input_buf)
+{
+    char *ptr1, *ptr2;
+    int ret = 0;
+
+    ptr1 = strstr(input_buf, "CN=");
+    if (ptr1 == NULL)
+    {
+        ret = -1;
+        goto exit;
+    }
+    ptr1 += 3; // ignore "CN=""
+    ptr2 = strstr(ptr1, ",");
+    // indicate there is no char after CN=
+    if (ptr2 == NULL)
+        ptr2 = input_buf + strlen(input_buf);
+    *cn_len = ptr2 - ptr1;
+    memcpy(cn_buf, ptr1, *cn_len);  // copy CN into buffer
+    cn_buf[*cn_len] = 0;
+exit:
+    return ret;
+}
 /*
     @brief: get information of certificate
     @return: 0 if success
@@ -981,5 +1007,83 @@ int mx_get_cert_info(char *certpath, char *start, char *end, char *issueto, char
     X509_free(x);
 
     return 0;
+#else
+    int ret, fd = 0;
+    int info_len = 512;
+    DIR *dir;
+    char tmp_buf[512] = {0};
+    char info[512] = {0};
+    unsigned char certificate[CERT_LEN] = {0}; 
+    mbedtls_x509_crt         cert;
+
+    mbedtls_x509_crt_init(&cert);
+    ret = crypto_decryption(certpath, 
+                                    CERT_ENDENTITY_TMP_PATH); 
+    if (ret != 0) {
+        printk("[Err] crypto_decryption %d\r\n", ret);   
+        return ret;
+    } 
+    if ((dir = opendir(CERT_ENDENTITY_RUN_DIR))) {
+        closedir(dir);
+    } else {
+        mkdir(CERT_ENDENTITY_RUN_DIR, 777);
+    }
+    if ((fd = open(CERT_ENDENTITY_TMP_PATH, O_RDWR | O_CREAT)) < 0) {
+        printk("open fd: %d, path: %s\r\n", fd, CERT_ENDENTITY_TMP_PATH);
+    }
+    if (fd > 0) {
+        ret = read(fd, certificate, CERT_LEN);
+        printk("Joy %s-%d, readlen=%d\r\n", __func__, __LINE__, ret);
+        printk("%s\r\n", certificate);
+        if (ret > 0) {
+#if 0        
+            mbedtls_ctr_drbg_context ctr_drbg;
+            mbedtls_ctr_drbg_init(&ctr_drbg);
+            if ((ret = mbedtls_pk_parse_key(&pkey, certificate, SSL_CERTKEY_LEN, NULL, 0,
+                                            mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) 
+                printk("[SSL] failed! pk_parse_key returned -0x%x\n\n", -ret);        
+#endif                
+            if ((ret = mbedtls_x509_crt_parse(&cert, certificate, CERT_LEN)) != 0) 
+                printk("[SSL] failed! x509_crt_parse returned -0x%X\r\n", -ret);
+        }
+        printk("JoyFrom %s-%d, len=%d, y=%d,m=%d,d=%d\r\n", __func__, __LINE__, 
+            ret, 
+            cert.valid_from.year,
+            cert.valid_from.mon,
+            cert.valid_from.day);   
+        ret = snprintf(start, info_len, "%d/%d/%d",
+                       cert.valid_from.year, cert.valid_from.mon,
+                       cert.valid_from.day);            
+        printk("JoyTo %s-%d, len=%d, y=%d,m=%d,d=%d\r\n", __func__, __LINE__, 
+            ret, 
+            cert.valid_to.year,
+            cert.valid_to.mon,
+            cert.valid_to.day);   
+        ret = snprintf(end, info_len, "%d/%d/%d",
+                       cert.valid_to.year, cert.valid_to.mon,
+                       cert.valid_to.day);            
+ 
+        ret = mbedtls_x509_dn_gets(tmp_buf, sizeof(tmp_buf), &(cert.subject));
+        getCnFromSubject(info, &info_len, tmp_buf);
+        printk("Joy Subject %s-%d, info=%s\r\n", __func__, __LINE__, info);
+        strcpy(issueto, info);
+        ret = mbedtls_x509_dn_gets(tmp_buf, sizeof(tmp_buf), &(cert.issuer));
+        getCnFromSubject(info, &info_len, tmp_buf);
+        printk("Joy Issuer %s-%d, info=%s\r\n", __func__, __LINE__, info);            
+        strcpy(issueby, info);
+    } else {
+        printk("[SSL] Open cert file fail (fd:%d)\r\n", fd);
+
+        close(fd);
+     
+        return -1;
+    } 
+
+    close(fd);
+
+    return 0;
+
+
+
 #endif    
 }

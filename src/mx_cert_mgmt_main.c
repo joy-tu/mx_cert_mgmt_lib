@@ -11,11 +11,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <time.h>
 /* CMAKE generates the definition file based on cmake/config.cmake. */
 #if __linux__
 #include <sysexits.h>
 #include <../include/mx_cert_mgmt/conf.h>
 #else
+#include <zephyr.h>
 #include "conf.h"
 #endif
 #include <netinet/in.h>
@@ -654,12 +656,13 @@ exit:
 int ssl_cert_load(int regen)
 {
     int ret, fd = 0;
-    int gen_cert = 1;
-    int info_len = 1024;
+    int info_len = 512;
     DIR *dir;
-    char info[1024] = {0};
-
-    if (regen == 0) {
+    char tmp_buf[512] = {0};
+    char info[512] = {0};
+//    if (regen == 0) {
+    if (1) {
+        printk("Cert is in FLASH.D......\r\n");
         ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
                                         CERT_ENDENTITY_TMP_PATH); 
         if (ret != 0) {
@@ -667,66 +670,45 @@ int ssl_cert_load(int regen)
             return ret;
         } 
     }
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-    if ((dir = opendir(CERT_ENDENTITY_RUN_DIR)))
-    {
+    if ((dir = opendir(CERT_ENDENTITY_RUN_DIR))) {
         closedir(dir);
-    }
-    else
-    {
+    } else {
         mkdir(CERT_ENDENTITY_RUN_DIR, 777);
     }
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-    if ((fd = open(CERT_ENDENTITY_TMP_PATH, O_RDWR | O_CREAT)) < 0)
-    {
+    if ((fd = open(CERT_ENDENTITY_TMP_PATH, O_RDWR | O_CREAT)) < 0) {
         printk("open fd: %d, path: %s\r\n", fd, CERT_ENDENTITY_TMP_PATH);
     }
-    printk("Joy %s-%d fd =%d\r\n", __func__, __LINE__, fd);
-    if (fd > 0)
-    {
+    if (fd > 0) {
         ret = read(fd, certificate, SSL_CERTKEY_LEN);
-        printk("Joy %s-%d, read len = %d\r\n", __func__, __LINE__, ret);
-//        if ((ret = read(fd, key_tmp, SSL_CERTKEY_LEN)) > 0)
-        if (ret > 0)
-        {
+        printk("Joy %s-%d, readlen=%d\r\n", __func__, __LINE__, ret);
+        printk("%s\r\n", certificate);
+        if (ret > 0) {
             mbedtls_ctr_drbg_context ctr_drbg;
             mbedtls_ctr_drbg_init(&ctr_drbg);
-            printk("Joy %s-%d\r\n", __func__, __LINE__);
-            //printk("%s\r\n", certificate);
-
             if ((ret = mbedtls_pk_parse_key(&pkey, certificate, SSL_CERTKEY_LEN, NULL, 0,
-                                            mbedtls_ctr_drbg_random, &ctr_drbg)) != 0)
-            {
-                printk("[SSL] failed! pk_parse_key returned -0x%x\n\n", -ret);
-            }
-            else if ((ret = mbedtls_x509_crt_parse(&cert, certificate, SSL_CERTKEY_LEN)) != 0)
-            {
+                                            mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) 
+                printk("[SSL] failed! pk_parse_key returned -0x%x\n\n", -ret);        
+                
+            if ((ret = mbedtls_x509_crt_parse(&cert, certificate, SSL_CERTKEY_LEN)) != 0) 
                 printk("[SSL] failed! x509_crt_parse returned -0x%X\r\n", -ret);
-            }
-            else
-            {
-                gen_cert = 0;
-            }
         }
-        printk("Joy %s-%d, len=%d, y=%d,m=%d,d=%d\r\n", __func__, __LINE__, 
+        printk("JoyFrom %s-%d, len=%d, y=%d,m=%d,d=%d\r\n", __func__, __LINE__, 
             ret, 
             cert.valid_from.year,
             cert.valid_from.mon,
-            cert.valid_from.day);
-#if 0        
-        ret = snprintf(info, info_len, "%d/%d/%d",
-                       cert.valid_from.year, cert.valid_from.mon,
-                       cert.valid_from.day);      
-        printk("Joy %s-%d, info=%s, ret = %d\r\n", __func__, __LINE__, info, ret);
-        ret = snprintf(info, info_len, "%d/%d/%d",
-                       cert.valid_to.year, cert.valid_to.mon,
-                       cert.valid_to.day);                       
-        printk("Joy %s-%d, info=%s\r\n", __func__, __LINE__, info);                       
-#endif        
-    }
-    else
-    {
-        printk("Joy %s-%d\r\n", __func__, __LINE__);
+            cert.valid_from.day);   
+        printk("JoyTo %s-%d, len=%d, y=%d,m=%d,d=%d\r\n", __func__, __LINE__, 
+            ret, 
+            cert.valid_to.year,
+            cert.valid_to.mon,
+            cert.valid_to.day);   
+        ret = mbedtls_x509_dn_gets(tmp_buf, sizeof(tmp_buf), &(cert.subject));
+        getCnFromSubject(info, &info_len, tmp_buf);
+        printk("Joy Subject %s-%d, info=%s\r\n", __func__, __LINE__, info);
+        ret = mbedtls_x509_dn_gets(tmp_buf, sizeof(tmp_buf), &(cert.issuer));
+        getCnFromSubject(info, &info_len, tmp_buf);
+        printk("Joy Issuer %s-%d, info=%s\r\n", __func__, __LINE__, info);            
+    } else {
         printk("[SSL] Open cert file fail (fd:%d)\r\n", fd);
 
         close(fd);
@@ -903,47 +885,7 @@ int mx_cert_mgmt_daemon_test(void *ptr)
     {
         printk("open fd: %d, path: %s\r\n", fd, CERT_ENDENTITY_TMP_PATH);
     }
-#ifdef __MEMORY__
-    temp = malloc(SSL_CERTKEY_LEN);
-    printk("Joy %s-%d, fd = %d, temp=%x\r\n", __func__, __LINE__, fd, temp);
 
-    if (temp == NULL)
-    {
-        printk("[SSL] Failed, malloc failed\r\n");
-        return -1;
-    }
-    memset(temp, 0, SSL_CERTKEY_LEN);
-
-
-    if_addr = net_if_get_by_index(1)->config.ip.ipv4->unicast;
-
-    len = sprintf((char *)temp, "%s\r\n",
-                net_sprint_addr(AF_INET, &if_addr->address.in_addr));
-
-    printk("Joy %s-%d, len =%d, ip - %s\r\n", __func__, __LINE__, len, net_sprint_addr(AF_INET, &if_addr->address.in_addr));
-#endif    
-
-#ifdef __GENKEY__
-    /* generate a 1024-bit RSA key pair (ssl_gen_rsa_key) */
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-
-    if ((ret = mbedtls_pk_setup(&pkey, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA))) != 0)
-    {
-        printk("[SSL] failed! pk_setup returned -0x%04x\r\n", -ret);
-        return ret;
-    }
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-
-    ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(pkey), mbedtls_ctr_drbg_random, &ctr,
-                              DEFAULT_KEY_LENGTH, 65537);
-
-    if (ret != 0)
-    {
-        printk("[SSL] failed! rsa_gen_key returned -0x%04x\r\n", -ret);
-        return ret;
-    }
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-#endif
     // Write PEM key to buffer
     if ((ret = mbedtls_pk_write_key_pem(&pkey, temp + len,
                                         DEFAULT_KEY_PEM_SIZE)) != 0)
@@ -954,80 +896,28 @@ int mx_cert_mgmt_daemon_test(void *ptr)
     }    
     //len = header + key
     len = strlen((char *)temp);
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-#ifdef __SIGNCERT__
-    // to do : get local time
-    sprintf((char *)date_from, "%04d%02d%02d%02d%02d%02d",
-            2020,  1, 1, 0, 0, 0);
-
-    sprintf((char *)date_to, "%04d%02d%02d%02d%02d%02d",
-            2040, 1, 1, 0, 0, 0);
-
-    sprintf((char *)name, "CN=%s", net_sprint_addr(AF_INET, &if_addr->address.in_addr));
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-
-    mbedtls_x509write_crt_init(&crt);
-    mbedtls_x509write_crt_set_md_alg(&crt, MBEDTLS_MD_SHA256);
-    mbedtls_mpi_init(&serial);
-
-    if ((ret = mbedtls_mpi_read_string(&serial, 10, DEFAULT_CERT_SERIAL)) != 0)
-    {
-        printk("[SSL] failed! mpi_read_string returned -0x%02x\r\n", -ret);
-        ret = -3;
-        goto cleanup;
-    }
-
-    mbedtls_x509write_crt_set_subject_key(&crt, subject_key);
-    mbedtls_x509write_crt_set_issuer_key(&crt, issuer_key);
-
-    if ((ret = mbedtls_x509write_crt_set_subject_name(&crt, (char *)name)) != 0)
-    {
-        printk("[SSL] failed! x509write_crt_set_subject_name returned -0x%02x\r\n", -ret);
-        ret = -3;
-        goto cleanup;
-    }
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-
-    if ((ret = mbedtls_x509write_crt_set_issuer_name(&crt, (char *)name)) != 0)
-    {
-        printk("[SSL] failed! x509write_crt_set_issuer_name returned -0x%02x\r\n", -ret);
-        ret = -3;
-        goto cleanup;
-    }
-
-    if ((ret = mbedtls_x509write_crt_set_serial(&crt, &serial)) != 0)
-    {
-        printk("[SSL] failed! x509write_crt_set_serial returned -0x%02x\r\n", -ret);
-        ret = -3;
-        goto cleanup;
-    }
-
-    if ((ret = mbedtls_x509write_crt_set_validity(&crt, (char *)date_from, (char *)date_to)) != 0)
-    {
-        printk("[SSL] failed! x509write_crt_set_validity returned -0x%02x\r\n", -ret);
-        ret = -3;
-        goto cleanup;
-    }
-#endif    
     if ((ret = mbedtls_x509write_crt_pem(&crt, temp + len, DEFAULT_CERT_PEM_SIZE, mbedtls_ctr_drbg_random, &ctr)) < 0)
     {
         printk("[SSL] failed! x509write_crt_pem returned -0x%02x\r\n", -ret);
         ret = -3;
         goto cleanup;
     }
-    printk("Joy %s-%d\r\n", __func__, __LINE__);
-#if 1
+#if 0
+{
+            mbedtls_ctr_drbg_context ctr_drbg;
+            mbedtls_ctr_drbg_init(&ctr_drbg);
+     if ((ret = mbedtls_pk_parse_key(&pkey, temp + len, DEFAULT_CERT_PEM_SIZE, NULL, 0,
+                                                mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) 
+         printk("[SSL-Joy] failed! pk_parse_key returned -0x%x\n\n", -ret);        
+                    
+
     if ((ret = mbedtls_x509_crt_parse(&cert, temp + len, DEFAULT_CERT_PEM_SIZE)) != 0)
     {
-        printk("[SSL] failed! x509_crt_parse returned -0x%02x\r\n", -ret);
+        printk("[SSL-Joy] failed! x509_crt_parse returned -0x%02x\r\n", -ret);
         ret = -3;
         goto cleanup;
     }
-        printk("Joy %s-%d, len=%d, y=%d,m=%d,d=%d\r\n", __func__, __LINE__, 
-            ret, 
-            cert.valid_from.year,
-            cert.valid_from.mon,
-            cert.valid_from.day);    
+}
 #endif
     //len = header + key + cert
     len = strlen((char *)temp);
@@ -1036,25 +926,59 @@ int mx_cert_mgmt_daemon_test(void *ptr)
         printk("[SSL] Save certificate fail(%d)\r\n", ret);
     }
     close(fd);
-    printk("Joy %s-%d, ret = %d, fd = %d len - %d\r\n", 
-        __func__, __LINE__, ret, fd, len);
     ret = crypto_encryption(CERT_ENDENTITY_TMP_PATH, CERT_ENDENTITY_PEM_PATH);
     if (ret != 0) {
         printf("[Err] crypto_decryption %d\r\n", ret);
         return -1;
     }        
-    //unlink(CERT_ENDENTITY_TMP_PATH);
+    unlink(CERT_ENDENTITY_TMP_PATH);
 #endif    
 mbed_ck_valid:
 #if 1
+    printk("Joy %s,%d, regen = %d\r\n", __func__, __LINE__, regen);
     ret = ssl_cert_load(regen);
     if (ret == -1)
         printk("Certificate is not exist!!!\r\n");
     if (!ret) {
         printk("Certificate Found!!!\r\n");
     }
-    for (;;)
+    for (;;) {
+#ifndef __GETTIME__ /* No RTC now ??? */
+        uint64_t uptime_ticks = k_uptime_get();
+        uint64_t uptime_seconds = uptime_ticks / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
+        time_t current_time = (time_t) uptime_seconds;
+        time_t t;
+        struct tm *time_info, tm;
+
+        printk("Time_tick %llu, time_sec=%llu\r\n", uptime_ticks, uptime_seconds);
+        time_info = gmtime(&current_time);
+        
+        int year = time_info->tm_year + 1900; // Years since 1900
+        int month = time_info->tm_mon + 1; // Months since January [0-11]
+        int day = time_info->tm_mday; // Day of the month [1-31]
+        int hour = time_info->tm_hour; // Hours since midnight [0-23]
+        int minute = time_info->tm_min; // Minutes after the hour [0-59]
+        int second = time_info->tm_sec; // Seconds after the minute [0-60]
+
+
+        // Print the date and time information
+        printk("Current date and time: %d/%02d/%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
+
+        int ret;
+        t = time(NULL);
+
+        tm = *localtime(&t);
+        year = tm.tm_year + 1900; // Years since 1900
+        month = tm.tm_mon + 1; // Months since January [0-11]
+        day = tm.tm_mday; // Day of the month [1-31]
+        hour = tm.tm_hour; // Hours since midnight [0-23]
+        minute = tm.tm_min; // Minutes after the hour [0-59]
+        second = tm.tm_sec; // Seconds after the minute [0-60]   
+        printk("Current date and time: %d/%02d/%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
+        
+#endif
         sleep(10);
+    }
 #endif
 #if 0
     ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 

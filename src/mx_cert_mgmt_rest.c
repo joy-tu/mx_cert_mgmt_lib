@@ -736,7 +736,7 @@ int cert_mgmt_rest_init(char *module_name, int *id)
         return -1;
     }
 
-    /* get all config of time */
+    /* get all config of certificate */
     if ((ret = rest_cb_register(ret_id,
                                 "/certinfo",
                                 REST_OP_GET,
