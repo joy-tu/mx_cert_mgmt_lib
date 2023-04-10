@@ -28,6 +28,9 @@
 #include <mbedtls/cipher.h>
 #include "mbedtls/md.h"
 #include "mbedtls/x509_crt.h"
+#include "mbedtls/md.h"
+#include "mx_mbed.h"
+#include <entropy_poll.h>
 #else   /* Linux */
 #include <linux/sockios.h>
 #include <openssl/crypto.h>
@@ -509,6 +512,35 @@ static int check_cert_type(char *pem)
     else
         return -1;
 }
+static int checkCertMbed(char *data, int datalen)
+{
+    int ret = 0;
+    mbedtls_pk_context pkey;
+    mbedtls_x509_crt pcert;
+    mbedtls_ctr_drbg_context ctr_drbg;
+
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_pk_init(&pkey);
+    mbedtls_x509_crt_init(&pcert);
+
+    if ((ret = mbedtls_pk_parse_key(&pkey, data, datalen, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) {
+        printk("[SSL] %s-%d: failed! pk_parse_key returned -0x%x\n\n", __func__, __LINE__, -ret);
+        ret = -1;
+        goto clean1;
+    }
+
+    if ((ret = mbedtls_x509_crt_parse(&pcert, data, datalen)) != 0)
+    {
+        printk("[SSL] %s-%d: failed! x509_crt_parse returned -0x%X\r\n", __func__, __LINE__, -ret);
+        ret = -2;
+        goto clean1;
+    }
+clean1:    
+    mbedtls_pk_free(&pkey);
+    mbedtls_x509_crt_free(&pcert);
+
+    return ret;
+}
 /**
  * @brief:  Check the validate of cerificate file.
  *
@@ -666,12 +698,15 @@ int mx_import_cert(char * fname, char* data, int len, char *errStr, int errlen)
 
     certFile = (char*)tmpFile;
     keyFile = (char*)tmpFile;
-
+#if __linux__
     ret = checkCert(certFile, keyFile, flag, errStr, errlen);
     if (ret < 0) {
         ret -= 10;
         goto error;
     }
+#else
+    ret = checkCertMbed(data, len);
+#endif
 #ifdef OPTEE_DECRY_ENCRY
     ret = crypto_encryption(tmpFile, fname);
     if (ret != 0) {

@@ -35,7 +35,7 @@
 #include <mbedtls/cipher.h>
 #include "mbedtls/md.h"
 #include <zephyr/posix/pthread.h>
-#include "ark_ssl.h"
+#include "mx_mbed.h"
 #include <entropy_poll.h>
 #else   /* Linux */
 #include <linux/sockios.h>
