@@ -78,6 +78,7 @@
 #define SSL_CERT_IMPORT_FLAG "import"
 #define CERT_ROOTCA_VALID_DAY 3650 
 #define CERT_ROOTCA_KEY_LENGTH 2048
+#define SECS_PER_DAY        86400
 #define MODE (S_IRWXU | S_IRWXG | S_IRWXO)  
 #if __ZEPHYR__
 #define CERTMGMT_THREAD_STACK_SIZE 10240*2
@@ -346,6 +347,26 @@ static int _ASN1_TIME_print(char *buf, ASN1_TIME *tm)
     return(0);
 }
 #endif /* __LINUX__ */
+static int cert_get_valid_date_mbed(mbedtls_x509_crt *certp, struct tm *tm_before, struct tm *tm_after) 
+{
+    tm_after->tm_year = certp->valid_to.year - 1900; 
+    tm_after->tm_mon = certp->valid_to.mon - 1;
+    tm_after->tm_mday = certp->valid_to.day;
+    tm_after->tm_hour = 0;
+    tm_after->tm_min = 0;
+    tm_after->tm_sec = 0;
+
+    tm_before->tm_year = certp->valid_from.year - 1900; 
+    tm_before->tm_mon = certp->valid_from.mon - 1;
+    tm_before->tm_mday = certp->valid_from.day;
+    tm_before->tm_hour = 0;
+    tm_before->tm_min = 0;
+    tm_before->tm_sec = 0;
+    
+    return 0;
+}
+
+
 static int cert_get_valid_date(char *_buf, struct tm *tm) 
 {
     char * pch;
@@ -829,7 +850,7 @@ static int mx_cert_sign_cert_mbed(mbedtls_x509write_cert *crt)
 #if 1
 int mx_cert_mgmt_daemon_test(void *ptr)
 {
-    int ret, len, regen = 0;
+    int ret, len, regen = 0, days, fd = 0;
     unsigned char *temp = NULL;
     unsigned char date_from[16] = {0}, date_to[16] = {0};
     struct net_if_addr *if_addr;
@@ -837,7 +858,13 @@ int mx_cert_mgmt_daemon_test(void *ptr)
     mbedtls_x509write_cert crt;
     mbedtls_mpi serial;
     mbedtls_pk_context *issuer_key = &pkey, *subject_key = &pkey;
-    int fd = 0;
+    struct tm tm, endentity_date;
+    struct tm tm_not_before, tm_not_after;
+    time_t time_t_now = 0;
+    time_t time_t_not_before = 0;
+    time_t time_t_not_after = 0;
+
+
 
 #ifndef __MEMORY__
     temp = malloc(SSL_CERTKEY_LEN);
@@ -934,52 +961,70 @@ int mx_cert_mgmt_daemon_test(void *ptr)
     unlink(CERT_ENDENTITY_TMP_PATH);
 #endif    
 mbed_ck_valid:
-#if 1
     printk("Joy %s,%d, regen = %d\r\n", __func__, __LINE__, regen);
     ret = ssl_cert_load(regen);
     if (ret == -1)
         printk("Certificate is not exist!!!\r\n");
     if (!ret) {
         printk("Certificate Found!!!\r\n");
+        cert_get_valid_date_mbed(&cert, &tm_not_before, &tm_not_after);
+        time_t_not_before = mktime(&tm_not_before);
+        time_t_not_after = mktime(&tm_not_after);
     }
     for (;;) {
-#ifndef __GETTIME__ /* No RTC now ??? */
-        uint64_t uptime_ticks = k_uptime_get();
-        uint64_t uptime_seconds = uptime_ticks / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
-        time_t current_time = (time_t) uptime_seconds;
-        time_t t;
-        struct tm *time_info, tm;
+#if 1
+        time(&time_t_now);
+        printk("current: %lld,before:%lld,after: %lld\r\n", time_t_now, time_t_not_before, time_t_not_after);
+        printk("before:%d,%d,%d, after:%d,%d,%d\r\n", tm_not_before.tm_year, tm_not_before.tm_mon, tm_not_before.tm_mday,
+                tm_not_after.tm_year, tm_not_after.tm_mon, tm_not_after.tm_mday);
+        if (time_t_now < time_t_not_before) {
+            printk("Current time is out of start time\r\n");
+        } else if (time_t_not_after > time_t_now) {
+            days = ((uint32_t)(time_t_not_after - time_t_now) / SECS_PER_DAY);
+            if (days > 61)
+                printk("Certificate is ok\r\n");
+            else /*cert data < 61, it means certificate will expire */ {
+                printk("Certificate will expire\r\n");
+#if USE_MX_EVENT_AGENT                        
+                mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_WILL_EXPIRE);
+#endif                            
+            }
 
-        printk("Time_tick %llu, time_sec=%llu\r\n", uptime_ticks, uptime_seconds);
-        time_info = gmtime(&current_time);
-        
-        int year = time_info->tm_year + 1900; // Years since 1900
-        int month = time_info->tm_mon + 1; // Months since January [0-11]
-        int day = time_info->tm_mday; // Day of the month [1-31]
-        int hour = time_info->tm_hour; // Hours since midnight [0-23]
-        int minute = time_info->tm_min; // Minutes after the hour [0-59]
-        int second = time_info->tm_sec; // Seconds after the minute [0-60]
-
-
-        // Print the date and time information
-        printk("Current date and time: %d/%02d/%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
-
-        int ret;
+        } else {
+            printk("todo send for end-cert expired (%d)\r\n", ret); 
+#if USE_MX_EVENT_AGENT        
+            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_EXPIRE);
+#endif   
+        }
+#else
         t = time(NULL);
-
         tm = *localtime(&t);
-        year = tm.tm_year + 1900; // Years since 1900
-        month = tm.tm_mon + 1; // Months since January [0-11]
-        day = tm.tm_mday; // Day of the month [1-31]
-        hour = tm.tm_hour; // Hours since midnight [0-23]
-        minute = tm.tm_min; // Minutes after the hour [0-59]
-        second = tm.tm_sec; // Seconds after the minute [0-60]   
+        int year = tm.tm_year + 1900; // Years since 1900
+        int month = tm.tm_mon + 1; // Months since January [0-11]
+        int day = tm.tm_mday; // Day of the month [1-31]
+        int hour = tm.tm_hour; // Hours since midnight [0-23]
+        int minute = tm.tm_min; // Minutes after the hour [0-59]
+        int second = tm.tm_sec; // Seconds after the minute [0-60]   
+
+        printk("endentity date and time: %d/%02d/%02d %02d:%02d:%02d\n", 
+                    endentity_date.tm_year, endentity_date.tm_mon, endentity_date.tm_mday,
+                    endentity_date.tm_hour, endentity_date.tm_min, endentity_date.tm_sec);
         printk("Current date and time: %d/%02d/%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
-        
+        ret = cert_ck_expire(&tm, &endentity_date);
+        if (ret > 0) {
+            printk("todo send for end-cert will expired (%d)\r\n", ret);
+#if USE_MX_EVENT_AGENT        
+            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_WILL_EXPIRE);
 #endif
+        } else if (ret < 0) {
+            printk("todo send for end-cert expired (%d)\r\n", ret); 
+#if USE_MX_EVENT_AGENT        
+            mx_cert_event_notify(MX_CERT_EVENT_NOTIFY_ENDCERT_EXPIRE);
+#endif            
+        }
+#endif        
         sleep(10);
     }
-#endif
 #if 0
     ret = crypto_decryption(CERT_ENDENTITY_PEM_PATH, 
                                         CERT_ENDENTITY_TMP_PATH); 
